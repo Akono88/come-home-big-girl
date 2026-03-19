@@ -519,6 +519,11 @@ const LOG_ID = 'activity-log-v3';
 const HISTORY_ID = 'calendar-history';
 const VAX_ID = 'vaccination-tracker';
 
+/* ═══ DEVICE ID (unique per browser/phone) ═══ */
+var DEVICE_ID = localStorage.getItem('bg-device-id');
+if (!DEVICE_ID) { DEVICE_ID = 'dev-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6); localStorage.setItem('bg-device-id', DEVICE_ID); }
+var lastSaveTs = {}; // track our own saves to ignore echoes
+
 /* ═══ TIMEZONE HELPERS ═══ */
 function getCSTNow() { return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' })); }
 function getCSTDate() { return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }); }
@@ -600,6 +605,7 @@ async function loadState() {
         var res = await sb.from('husky_logs').select('content').eq('id', STATE_ID).single();
         if (res.data && res.data.content) {
             var s = res.data.content;
+            delete s._device; delete s._ts;
             var today = getCSTDate();
             if (s.date !== today) {
                 // Archive previous day before resetting
@@ -616,17 +622,26 @@ async function loadState() {
 
     try {
         var res2 = await sb.from('husky_logs').select('content').eq('id', LOG_ID).single();
-        if (res2.data && res2.data.content) logEntries = res2.data.content;
+        if (res2.data && res2.data.content) {
+            var lc = res2.data.content;
+            logEntries = lc.entries ? lc.entries : (Array.isArray(lc) ? lc : []);
+        }
     } catch(e) {}
 
     try {
         var res3 = await sb.from('husky_logs').select('content').eq('id', HISTORY_ID).single();
-        if (res3.data && res3.data.content) calHistory = res3.data.content;
+        if (res3.data && res3.data.content) {
+            var hc = res3.data.content;
+            calHistory = hc.data ? hc.data : (typeof hc === 'object' && !Array.isArray(hc) && !hc._device ? hc : {});
+        }
     } catch(e) {}
 
     try {
         var res4 = await sb.from('husky_logs').select('content').eq('id', VAX_ID).single();
-        if (res4.data && res4.data.content) vaccinations = res4.data.content;
+        if (res4.data && res4.data.content) {
+            var vc = res4.data.content;
+            vaccinations = vc.data ? vc.data : (Array.isArray(vc) ? vc : []);
+        }
     } catch(e) {}
 
     applyState();
@@ -654,7 +669,10 @@ async function saveState() {
     state.date = getCSTDate();
     syncIndicator('saving');
     try {
-        var res = await sb.from('husky_logs').upsert({ id: STATE_ID, content: state, updated_at: new Date().toISOString() });
+        var ts = new Date().toISOString();
+        lastSaveTs[STATE_ID] = ts;
+        var payload = Object.assign({}, state, { _device: DEVICE_ID, _ts: ts });
+        var res = await sb.from('husky_logs').upsert({ id: STATE_ID, content: payload, updated_at: ts });
         if (res.error) throw res.error;
         syncIndicator('saved');
         // Always keep calendar history in sync with today's data
@@ -664,15 +682,15 @@ async function saveState() {
 }
 
 async function saveLog() {
-    try { await sb.from('husky_logs').upsert({ id: LOG_ID, content: logEntries, updated_at: new Date().toISOString() }); } catch(e) { console.error('Log save error:', e); }
+    try { var ts = new Date().toISOString(); lastSaveTs[LOG_ID] = ts; await sb.from('husky_logs').upsert({ id: LOG_ID, content: { _device: DEVICE_ID, _ts: ts, entries: logEntries }, updated_at: ts }); } catch(e) { console.error('Log save error:', e); }
 }
 
 async function saveCalHistory() {
-    try { await sb.from('husky_logs').upsert({ id: HISTORY_ID, content: calHistory, updated_at: new Date().toISOString() }); } catch(e) { console.error('Cal save error:', e); }
+    try { var ts = new Date().toISOString(); lastSaveTs[HISTORY_ID] = ts; await sb.from('husky_logs').upsert({ id: HISTORY_ID, content: { _device: DEVICE_ID, _ts: ts, data: calHistory }, updated_at: ts }); } catch(e) { console.error('Cal save error:', e); }
 }
 
 async function saveVax() {
-    try { await sb.from('husky_logs').upsert({ id: VAX_ID, content: vaccinations, updated_at: new Date().toISOString() }); } catch(e) { console.error('Vax save error:', e); }
+    try { var ts = new Date().toISOString(); lastSaveTs[VAX_ID] = ts; await sb.from('husky_logs').upsert({ id: VAX_ID, content: { _device: DEVICE_ID, _ts: ts, data: vaccinations }, updated_at: ts }); } catch(e) { console.error('Vax save error:', e); }
 }
 
 function syncIndicator(m) {
@@ -1017,10 +1035,94 @@ document.querySelectorAll('.section-btn').forEach(function(btn) {
     });
 });
 
+/* ═══════════════════════════════════════
+   REALTIME CROSS-DEVICE SYNC
+   ═══════════════════════════════════════ */
+function startRealtime() {
+    sb.channel('husky-sync')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'husky_logs' }, function(payload) {
+            var row = payload.new;
+            if (!row || !row.content) return;
+            var c = row.content;
+
+            // Ignore our own saves
+            if (c._device === DEVICE_ID) return;
+            // Ignore if timestamp matches our last save (fallback check)
+            if (lastSaveTs[row.id] && row.updated_at === lastSaveTs[row.id]) return;
+
+            console.log('[Realtime] Remote update:', row.id, 'from device:', c._device);
+
+            if (row.id === STATE_ID) {
+                var remoteState = Object.assign({}, c);
+                delete remoteState._device; delete remoteState._ts;
+                var oldState = JSON.parse(JSON.stringify(state));
+                state = Object.assign({}, state, remoteState);
+                applyState();
+
+                // Detect what changed and notify
+                if (row.content.toddler !== oldState.toddler) {
+                    if (row.content.toddler) {
+                        notify('🚨 Big Girl on Time Out', 'Another caretaker activated Time Out — do NOT approach her.', 'remote-timeout-on');
+                    } else {
+                        notify('😊 Time Out Ended', 'Another caretaker turned off Time Out — Big Girl is feeling better.', 'remote-timeout-off');
+                    }
+                }
+
+                // Check for newly completed tasks
+                var newDone = row.content.tasks ? row.content.tasks.filter(Boolean).length : 0;
+                var oldDone = oldState.tasks ? oldState.tasks.filter(Boolean).length : 0;
+                if (newDone > oldDone) {
+                    var changedTasks = [];
+                    row.content.tasks.forEach(function(done, i) {
+                        if (done && !oldState.tasks[i]) changedTasks.push(schedule[i].task);
+                    });
+                    notify('✅ Task Updated', changedTasks.join(', ') + ' completed by another caretaker.', 'remote-task');
+                    if (newDone === schedule.length) {
+                        notify('🎉 All Tasks Done!', 'All daily tasks completed! Great teamwork.', 'remote-all-done');
+                    }
+                } else if (newDone < oldDone) {
+                    notify('⬜ Task Unchecked', 'A task was unchecked by another caretaker.', 'remote-task-undo');
+                }
+
+                // Notes changed
+                if (row.content.notes && row.content.notes !== oldState.notes && row.content.notes.trim()) {
+                    notify('📝 Note Added', row.content.notes.trim().substring(0, 80), 'remote-note');
+                }
+
+                syncIndicator('saved');
+            }
+
+            if (row.id === LOG_ID) {
+                logEntries = c.entries ? c.entries : (Array.isArray(c) ? c : []);
+                renderLog();
+            }
+
+            if (row.id === HISTORY_ID) {
+                calHistory = c.data ? c.data : (typeof c === 'object' && !Array.isArray(c) && !c._device ? c : {});
+                if (document.getElementById('tab-calendar').classList.contains('active')) renderCalendar();
+            }
+
+            if (row.id === VAX_ID) {
+                var oldCount = vaccinations.length;
+                vaccinations = c.data ? c.data : (Array.isArray(c) ? c : []);
+                renderVax();
+                if (vaccinations.length > oldCount) {
+                    notify('💉 Vaccination Added', 'A vaccination was added by another caretaker.', 'remote-vax');
+                } else if (vaccinations.length < oldCount) {
+                    notify('🗑️ Vaccination Removed', 'A vaccination was removed by another caretaker.', 'remote-vax-rm');
+                }
+            }
+        })
+        .subscribe(function(status) {
+            console.log('[Realtime] Status:', status);
+        });
+}
+
 /* ═══ INIT ═══ */
 loadState().then(function() {
     initCalendar();
     renderNotifBanner();
+    startRealtime();
 });
 </script>
 </body>
