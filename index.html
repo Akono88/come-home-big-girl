@@ -590,6 +590,7 @@ async function archiveTodayAndReset() {
     state = { toddler: false, notes: '', tasks: Array(schedule.length).fill(false), date: getCSTDate() };
     applyState();
     addLog('toggle', '🔄 New day — checklist auto-reset');
+    notify('🌅 New Day', 'Good morning! Yesterday\'s data has been archived. Fresh checklist ready.', 'new-day');
     await saveState();
 }
 
@@ -843,6 +844,7 @@ document.getElementById('addVaxBtn').addEventListener('click', function() {
     saveVax();
     renderVax();
     addLog('note', '💉 Added vaccination: ' + name);
+    notify('💉 Vaccination Added', name + ' recorded. Next due date is being tracked.', 'vax-add');
 });
 
 window.removeVax = function(i) {
@@ -852,6 +854,7 @@ window.removeVax = function(i) {
     saveVax();
     renderVax();
     addLog('note', '🗑️ Removed vaccination: ' + name);
+    notify('🗑️ Vaccination Removed', name + ' has been removed from tracking.', 'vax-remove');
 };
 
 /* ═══════════════════════════════════════
@@ -922,6 +925,13 @@ function scheduleNotifications() {
     });
 }
 
+/* ═══ PUSH NOTIFY HELPER ═══ */
+function notify(title, body, tag) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, { body: body, tag: tag || 'bg-action-' + Date.now() });
+    }
+}
+
 /* ═══════════════════════════════════════
    EVENT HANDLERS
    ═══════════════════════════════════════ */
@@ -940,6 +950,9 @@ document.querySelectorAll('#taskList input[type="checkbox"]').forEach(function(c
         if (this.checked) row.classList.add('done'); else row.classList.remove('done');
         updateProgress();
         addLog('task', (this.checked ? '✅' : '⬜') + ' ' + schedule[i].task + ' (' + schedule[i].time + ')');
+        notify(this.checked ? '✅ Task Complete' : '⬜ Task Unchecked', schedule[i].task + ' (' + schedule[i].time + ')', 'task-' + i);
+        var done = state.tasks.filter(Boolean).length;
+        if (done === schedule.length) { notify('🎉 All Tasks Done!', 'Big Girl\'s full daily routine is complete. Great job!', 'all-done'); }
         saveState();
     });
 });
@@ -951,12 +964,15 @@ document.getElementById('dailyNotes').addEventListener('input', function() {
     clearTimeout(noteTimer);
     noteTimer = setTimeout(function() {
         saveState();
-        if (self.value.trim()) addLog('note', self.value.trim().substring(0, 120) + (self.value.length > 120 ? '...' : ''));
+        if (self.value.trim()) {
+            addLog('note', self.value.trim().substring(0, 120) + (self.value.length > 120 ? '...' : ''));
+            notify('📝 Note Saved', self.value.trim().substring(0, 80) + (self.value.length > 80 ? '...' : ''), 'note-saved');
+        }
     }, 1500);
 });
 
 /* ═══ MODAL ═══ */
-document.getElementById('tradeBtn').addEventListener('click', function() { document.getElementById('modal').classList.add('open'); });
+document.getElementById('tradeBtn').addEventListener('click', function() { document.getElementById('modal').classList.add('open'); notify('🚨 Emergency Trade-Up', 'Trade-up protocol activated. Follow the steps carefully.', 'trade-up'); });
 document.getElementById('closeModal').addEventListener('click', function() { document.getElementById('modal').classList.remove('open'); });
 document.getElementById('modal').addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
 
@@ -970,6 +986,7 @@ document.getElementById('resetBtn').addEventListener('click', async function() {
     }
     state = { toddler: false, notes: '', tasks: Array(schedule.length).fill(false), date: getCSTDate() };
     addLog('toggle', '🔄 Daily data reset');
+    notify('🔄 Daily Reset', 'Today\'s checklist has been reset. Previous data archived to calendar.', 'daily-reset');
     await saveState();
     applyState();
 });
