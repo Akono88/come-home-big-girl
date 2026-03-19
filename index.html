@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Come Home Big Girl v3</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --pink-deep: #c2185b;
+            --pink-mid: #e91e63;
+            --pink-soft: #f48fb1;
+            --pink-whisper: #fce4ec;
+            --pink-glow: rgba(194, 24, 91, 0.07);
+            --cream: #fffaf6;
+            --white: #ffffff;
+            --text: #3a2a2e;
+            --text-mid: #7a6a6e;
+            --text-light: #a8969a;
+            --border: rgba(194, 24, 91, 0.08);
+            --danger-bg: #fff3e0;
+            --danger-text: #bf360c;
+            --safe-bg: #e8f5e9;
+            --safe-text: #2e7d32;
+            --info-bg: #e3f2fd;
+            --info-text: #1565c0;
+            --warn-bg: #fff8e1;
+            --warn-text: #f57f17;
+            --radius: 18px;
+            --shadow: 0 2px 12px rgba(0,0,0,0.04), 0 0 0 1px var(--border);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Outfit', system-ui, sans-serif;
+            background: var(--pink-whisper); color: var(--text);
+            min-height: 100vh; padding: 0;
+            background-image:
+                radial-gradient(ellipse at 15% 0%, rgba(244,143,177,0.2) 0%, transparent 55%),
+                radial-gradient(ellipse at 85% 100%, rgba(233,30,99,0.08) 0%, transparent 45%);
+        }
+        .app { max-width: 520px; margin: 0 auto; padding: 14px 14px 100px; }
+
+        /* ═══ HEADER ═══ */
+        header {
+            background: var(--white); border-radius: var(--radius);
+            padding: 24px 18px 18px; text-align: center;
+            box-shadow: var(--shadow); margin-bottom: 6px;
+            position: relative; overflow: hidden;
+        }
+        header::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, var(--pink-soft), var(--pink-deep), var(--pink-soft));
+        }
+        .header-icon { font-size: 28px; margin-bottom: 4px; }
+        h1 { font-family: 'Fraunces', Georgia, serif; font-weight: 900; font-size: 1.3rem; color: var(--pink-deep); letter-spacing: 0.3px; }
+        .subtitle { font-size: 0.55rem; letter-spacing: 3px; text-transform: uppercase; color: var(--text-light); margin-top: 3px; font-weight: 700; }
+        .cst-clock { margin-top: 6px; font-size: 0.65rem; font-weight: 600; color: var(--pink-mid); letter-spacing: 0.5px; }
+
+        /* ═══ BOTTOM NAV ═══ */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0; background: var(--white);
+            border-top: 1px solid var(--border); display: flex; z-index: 50;
+            box-shadow: 0 -2px 16px rgba(0,0,0,0.04); max-width: 520px; margin: 0 auto;
+        }
+        .nav-btn {
+            flex: 1; border: none; background: none; padding: 8px 4px 6px; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            color: var(--text-light); transition: color 0.2s; font-family: 'Outfit', sans-serif;
+        }
+        .nav-btn i { font-size: 16px; }
+        .nav-btn span { font-size: 0.5rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+        .nav-btn.active { color: var(--pink-deep); }
+        .nav-btn.active i { transform: scale(1.1); }
+        .nav-btn .notif-dot { width: 6px; height: 6px; background: #e53935; border-radius: 50%; position: absolute; top: 6px; right: calc(50% - 14px); display: none; }
+
+        /* ═══ TABS ═══ */
+        .tab-view { display: none; animation: fadeUp 0.3s ease; }
+        .tab-view.active { display: block; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ═══ CARDS ═══ */
+        .card { background: var(--white); border-radius: var(--radius); padding: 16px; margin-top: 10px; box-shadow: var(--shadow); }
+        .card-title { font-family: 'Fraunces', Georgia, serif; font-weight: 700; color: var(--pink-deep); font-size: 0.85rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .card-title i { font-size: 0.75rem; opacity: 0.65; }
+
+        /* ═══ TODDLER TOGGLE ═══ */
+        .toggle-row { display: flex; justify-content: space-between; align-items: center; }
+        .toggle-label { font-weight: 800; font-size: 0.78rem; color: var(--pink-deep); letter-spacing: 0.5px; }
+        .toggle-sub { font-size: 0.58rem; color: var(--text-light); margin-top: 1px; font-weight: 500; }
+        .switch { position: relative; width: 52px; height: 28px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #e8e0e2; border-radius: 28px; transition: background 0.3s; }
+        .slider::before { content: '🐇'; position: absolute; font-size: 12px; width: 20px; height: 20px; left: 4px; bottom: 4px; background: var(--white); border-radius: 50%; transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+        input:checked + .slider { background: var(--pink-mid); }
+        input:checked + .slider::before { transform: translateX(24px); content: '👶'; }
+        .toddler-alert { margin-top: 10px; padding: 10px 12px; background: var(--danger-bg); border-radius: 12px; font-size: 0.68rem; color: var(--danger-text); font-weight: 600; display: none; align-items: center; gap: 8px; animation: fadeUp 0.25s ease; line-height: 1.4; }
+        .toddler-alert.active { display: flex; }
+
+        /* ═══ PROGRESS ═══ */
+        .progress-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .progress-bar { flex: 1; height: 5px; background: var(--pink-whisper); border-radius: 5px; overflow: hidden; }
+        .progress-fill { height: 100%; width: 0%; border-radius: 5px; background: linear-gradient(90deg, var(--pink-soft), var(--pink-deep)); transition: width 0.4s cubic-bezier(0.4,0,0.2,1); }
+        .progress-text { font-size: 0.6rem; font-weight: 700; color: var(--pink-deep); white-space: nowrap; }
+
+        /* ═══ TASK ITEMS ═══ */
+        .task-item { display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--pink-whisper); gap: 10px; transition: opacity 0.25s; }
+        .task-item:last-child { border-bottom: none; }
+        .task-item.done { opacity: 0.4; }
+        .task-item.done .task-name { text-decoration: line-through; }
+        .time-pill { font-size: 0.52rem; font-weight: 700; color: var(--pink-deep); background: var(--pink-glow); padding: 3px 6px; border-radius: 7px; min-width: 55px; text-align: center; letter-spacing: 0.3px; }
+        .task-info { flex: 1; min-width: 0; }
+        .task-name { display: block; font-weight: 600; font-size: 0.78rem; line-height: 1.25; }
+        .task-note { display: block; font-size: 0.62rem; color: var(--text-light); margin-top: 1px; }
+        .chk-wrap { width: 22px; height: 22px; flex-shrink: 0; }
+        .chk-wrap input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 22px; height: 22px; border: 2px solid var(--pink-soft); border-radius: 7px; cursor: pointer; transition: all 0.2s; background: transparent; }
+        .chk-wrap input:checked { background: var(--pink-deep); border-color: var(--pink-deep); }
+        .chk-wrap input:checked::after { content: '✓'; display: flex; align-items: center; justify-content: center; color: white; font-size: 13px; font-weight: 700; width: 100%; height: 100%; }
+
+        /* ═══ SECTION HEADER (for task groups) ═══ */
+        .routine-header { font-family: 'Fraunces', Georgia, serif; font-weight: 700; font-size: 0.72rem; color: var(--pink-mid); padding: 10px 0 2px; display: flex; align-items: center; gap: 6px; }
+        .routine-header:first-child { padding-top: 0; }
+
+        /* ═══ TEXTAREA ═══ */
+        textarea { width: 100%; height: 80px; border: 2px solid var(--pink-whisper); border-radius: 12px; padding: 10px 12px; font-family: 'Outfit', sans-serif; font-size: 0.75rem; resize: none; outline: none; color: var(--text); transition: border-color 0.2s; background: var(--cream); }
+        textarea::placeholder { color: #c9b5ba; }
+        textarea:focus { border-color: var(--pink-mid); background: var(--white); }
+
+        /* ═══ BUTTONS ═══ */
+        .btn-trade { width: 100%; padding: 13px; border: none; border-radius: 14px; font-family: 'Outfit', sans-serif; font-weight: 800; font-size: 0.78rem; cursor: pointer; letter-spacing: 0.5px; background: linear-gradient(135deg, var(--pink-deep), var(--pink-mid)); color: white; box-shadow: 0 4px 14px rgba(194,24,91,0.2); display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; transition: transform 0.1s; }
+        .btn-trade:active { transform: scale(0.97); }
+        .btn-secondary { width: 100%; padding: 10px; border: 1px solid var(--pink-whisper); background: transparent; border-radius: 10px; font-family: 'Outfit', sans-serif; font-weight: 600; color: var(--text-light); cursor: pointer; font-size: 0.68rem; margin-top: 8px; }
+        .btn-reset { display: block; margin: 6px auto 0; background: none; border: none; font-size: 0.55rem; color: var(--text-light); cursor: pointer; text-decoration: underline; font-family: 'Outfit', sans-serif; }
+
+        /* ═══ SYNC BAR ═══ */
+        .sync-bar { text-align: center; font-size: 0.53rem; color: var(--text-light); padding: 8px 0 2px; font-weight: 600; letter-spacing: 0.3px; }
+        .sync-bar.error { color: #e53935; }
+        .sync-bar.ok { color: var(--safe-text); }
+
+        /* ═══ CALENDAR ═══ */
+        .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .cal-header h3 { font-family: 'Fraunces', Georgia, serif; font-weight: 700; color: var(--pink-deep); font-size: 0.85rem; }
+        .cal-nav { display: flex; gap: 6px; }
+        .cal-nav button { width: 32px; height: 32px; border-radius: 10px; border: 1px solid var(--pink-whisper); background: var(--white); cursor: pointer; color: var(--pink-deep); font-size: 0.75rem; display: flex; align-items: center; justify-content: center; }
+        .cal-nav button:active { background: var(--pink-whisper); }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+        .cal-dow { font-size: 0.5rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; padding: 4px 0; }
+        .cal-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 10px; font-size: 0.7rem; font-weight: 600; cursor: pointer; transition: all 0.15s; position: relative; border: 2px solid transparent; }
+        .cal-day:hover { background: var(--pink-whisper); }
+        .cal-day.empty { pointer-events: none; }
+        .cal-day.today { border-color: var(--pink-deep); font-weight: 800; }
+        .cal-day.selected { background: var(--pink-deep); color: white; }
+        .cal-day.has-data::after { content: ''; width: 4px; height: 4px; border-radius: 50%; background: var(--pink-mid); position: absolute; bottom: 3px; }
+        .cal-day.selected.has-data::after { background: white; }
+        .cal-day.future { color: var(--text-light); opacity: 0.4; pointer-events: none; }
+        .cal-detail { margin-top: 12px; }
+        .cal-detail-date { font-family: 'Fraunces', Georgia, serif; font-weight: 700; color: var(--pink-deep); font-size: 0.8rem; margin-bottom: 8px; }
+        .cal-task-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--pink-whisper); font-size: 0.72rem; }
+        .cal-task-row:last-child { border-bottom: none; }
+        .cal-check { font-size: 0.7rem; }
+        .cal-notes { margin-top: 8px; font-size: 0.7rem; color: var(--text-mid); background: var(--cream); padding: 10px; border-radius: 10px; line-height: 1.5; white-space: pre-wrap; }
+        .cal-empty { text-align: center; padding: 20px 0; color: var(--text-light); font-size: 0.75rem; }
+
+        /* ═══ LOG ═══ */
+        .log-entry { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--pink-whisper); animation: fadeUp 0.2s ease; }
+        .log-entry:last-child { border-bottom: none; }
+        .log-time-col { min-width: 62px; text-align: right; padding-top: 2px; }
+        .log-date { font-size: 0.52rem; font-weight: 700; color: var(--pink-deep); letter-spacing: 0.3px; }
+        .log-time { font-size: 0.48rem; color: var(--text-light); font-weight: 600; }
+        .log-body { flex: 1; }
+        .log-type { display: inline-block; font-size: 0.48rem; font-weight: 700; padding: 2px 6px; border-radius: 6px; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .log-type.task { background: var(--safe-bg); color: var(--safe-text); }
+        .log-type.note { background: var(--info-bg); color: var(--info-text); }
+        .log-type.toggle { background: var(--warn-bg); color: var(--warn-text); }
+        .log-text { font-size: 0.72rem; line-height: 1.4; }
+        .empty-log { text-align: center; padding: 24px 0; color: var(--text-light); font-size: 0.75rem; }
+
+        /* ═══ CARE / INFO SECTIONS ═══ */
+        .section-nav { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; }
+        .section-btn { font-family: 'Outfit', sans-serif; font-size: 0.58rem; font-weight: 700; letter-spacing: 0.3px; padding: 5px 10px; border-radius: 20px; border: none; cursor: pointer; background: var(--pink-whisper); color: var(--text-mid); transition: all 0.2s; white-space: nowrap; }
+        .section-btn.active { background: var(--pink-deep); color: white; }
+        .info-section { display: none; animation: fadeUp 0.25s ease; }
+        .info-section.active { display: block; }
+        .info-block { margin-top: 10px; padding: 14px; border-radius: 14px; }
+        .info-block.danger { background: #fef2f2; border: 1px solid #fecaca; }
+        .info-block.safe { background: #f0fdf4; border: 1px solid #bbf7d0; }
+        .info-block.info { background: #eff6ff; border: 1px solid #bfdbfe; }
+        .info-block.warn { background: #fffbeb; border: 1px solid #fde68a; }
+        .info-block-title { font-family: 'Fraunces', Georgia, serif; font-weight: 700; font-size: 0.78rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .info-block.danger .info-block-title { color: #b91c1c; }
+        .info-block.safe .info-block-title { color: #15803d; }
+        .info-block.info .info-block-title { color: #1d4ed8; }
+        .info-block.warn .info-block-title { color: #a16207; }
+        .info-item { padding: 7px 0; font-size: 0.72rem; line-height: 1.45; border-bottom: 1px solid rgba(0,0,0,0.04); }
+        .info-item:last-child { border-bottom: none; }
+        .info-item strong { font-weight: 700; }
+        .info-item em { font-style: normal; color: var(--text-light); font-size: 0.65rem; display: block; margin-top: 2px; }
+
+        /* ═══ VACCINATION TRACKER ═══ */
+        .vax-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--pink-whisper); }
+        .vax-item:last-child { border-bottom: none; }
+        .vax-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .vax-status.current { background: var(--safe-text); }
+        .vax-status.due-soon { background: #f59e0b; }
+        .vax-status.overdue { background: #e53935; }
+        .vax-info { flex: 1; }
+        .vax-name { font-weight: 700; font-size: 0.75rem; }
+        .vax-date { font-size: 0.62rem; color: var(--text-light); margin-top: 1px; }
+        .vax-due { font-size: 0.6rem; font-weight: 700; padding: 2px 8px; border-radius: 8px; white-space: nowrap; }
+        .vax-due.current { background: var(--safe-bg); color: var(--safe-text); }
+        .vax-due.due-soon { background: var(--warn-bg); color: var(--warn-text); }
+        .vax-due.overdue { background: var(--danger-bg); color: var(--danger-text); }
+        .add-vax-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+        .add-vax-row input, .add-vax-row select { font-family: 'Outfit', sans-serif; font-size: 0.7rem; padding: 8px 10px; border: 2px solid var(--pink-whisper); border-radius: 10px; outline: none; background: var(--cream); color: var(--text); }
+        .add-vax-row input:focus { border-color: var(--pink-mid); }
+        .add-vax-row input[type="text"] { flex: 1; min-width: 100px; }
+        .add-vax-row input[type="date"] { width: 130px; }
+        .btn-add-vax { padding: 8px 14px; border: none; border-radius: 10px; background: var(--pink-deep); color: white; font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 0.68rem; cursor: pointer; }
+
+        /* ═══ QUICK REF TABLE ═══ */
+        .ref-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        .ref-table td { padding: 8px 10px; font-size: 0.72rem; border-bottom: 1px solid var(--pink-whisper); vertical-align: top; }
+        .ref-table td:first-child { font-weight: 700; color: var(--pink-deep); white-space: nowrap; width: 35%; }
+        .ref-table tr:last-child td { border-bottom: none; }
+
+        /* ═══ FEEDING TABLE ═══ */
+        .feed-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.68rem; }
+        .feed-table th { background: var(--pink-glow); color: var(--pink-deep); font-weight: 700; padding: 8px 6px; text-align: left; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .feed-table th:first-child { border-radius: 8px 0 0 0; }
+        .feed-table th:last-child { border-radius: 0 8px 0 0; }
+        .feed-table td { padding: 8px 6px; border-bottom: 1px solid var(--pink-whisper); }
+        .feed-table tr:last-child td { border-bottom: none; }
+
+        /* ═══ NOTIF BANNER ═══ */
+        .notif-banner { background: var(--info-bg); border: 1px solid #90caf9; border-radius: 12px; padding: 10px 14px; margin-top: 10px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+        .notif-banner i { color: var(--info-text); font-size: 1rem; }
+        .notif-banner-text { flex: 1; }
+        .notif-banner-title { font-weight: 700; font-size: 0.72rem; color: var(--info-text); }
+        .notif-banner-sub { font-size: 0.6rem; color: var(--text-mid); margin-top: 1px; }
+        .notif-banner.enabled { background: var(--safe-bg); border-color: #a5d6a7; }
+        .notif-banner.enabled i { color: var(--safe-text); }
+        .notif-banner.enabled .notif-banner-title { color: var(--safe-text); }
+
+        /* ═══ MODAL ═══ */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(58,42,46,0.5); backdrop-filter: blur(4px); z-index: 100; justify-content: center; align-items: flex-end; padding: 14px; }
+        .modal-overlay.open { display: flex; }
+        .modal { background: var(--white); border-radius: 22px 22px 18px 18px; padding: 22px 18px 16px; width: 100%; max-width: 500px; animation: modalUp 0.3s cubic-bezier(0.16,1,0.3,1); max-height: 80vh; overflow-y: auto; }
+        @keyframes modalUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .modal h3 { font-family: 'Fraunces', Georgia, serif; color: var(--pink-deep); font-size: 0.95rem; margin-bottom: 12px; text-align: center; }
+        .step { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; }
+        .step-num { width: 24px; height: 24px; flex-shrink: 0; background: var(--pink-glow); color: var(--pink-deep); font-weight: 800; font-size: 0.68rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .step-text { font-size: 0.74rem; line-height: 1.45; color: var(--text); }
+        .btn-close { margin-top: 12px; width: 100%; padding: 11px; border: 2px solid var(--pink-whisper); background: transparent; border-radius: 12px; font-family: 'Outfit', sans-serif; font-weight: 700; color: var(--text-light); cursor: pointer; font-size: 0.74rem; }
+
+        /* ═══ BACKUP FOOD CARD ═══ */
+        .backup-card { background: var(--warn-bg); border: 1px solid #fde68a; border-radius: 14px; padding: 12px 14px; margin-top: 10px; }
+        .backup-card .info-block-title { color: #a16207; }
+    </style>
+</head>
+<body>
+<div class="app" id="app">
+    <header>
+        <div class="header-icon">🐕‍🦺</div>
+        <h1>Come Home Big Girl</h1>
+        <div class="subtitle">The White Rabbit Protocol · v3</div>
+        <div class="cst-clock" id="cstClock"></div>
+    </header>
+
+    <!-- ═══════════ TAB: TODAY ═══════════ -->
+    <div class="tab-view active" id="tab-daily">
+        <div class="card">
+            <div class="toggle-row">
+                <div><div class="toggle-label">TODDLER IN HOUSE?</div><div class="toggle-sub">Heightened awareness mode</div></div>
+                <label class="switch"><input type="checkbox" id="toddlerSwitch"><span class="slider"></span></label>
+            </div>
+            <div class="toddler-alert" id="toddlerAlert"><i class="fa-solid fa-triangle-exclamation"></i> Gate all zones. No unsupervised contact. Keep metal cage barrier up. Enter through garage, not front door. Use "Heel, Big Girl" command in a dominant tone.</div>
+        </div>
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-paw"></i> Daily Hop-List</div>
+            <div class="progress-wrap"><div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div><div class="progress-text" id="progressText">0 / 0</div></div>
+            <div id="taskList"></div>
+        </div>
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-pen-nib"></i> Behavioral Notes</div>
+            <textarea id="dailyNotes" placeholder="Stool quality? Anxiety signs? Eating habits? Reaction to guests or sounds?"></textarea>
+        </div>
+        <button class="btn-trade" id="tradeBtn"><i class="fa-solid fa-shield-halved"></i> EMERGENCY TRADE-UP</button>
+        <div id="notifBanner"></div>
+        <div class="sync-bar" id="syncStatus"><i class="fa-solid fa-cloud"></i> Connecting to cloud...</div>
+        <button class="btn-reset" id="resetBtn">Reset today's data</button>
+    </div>
+
+    <!-- ═══════════ TAB: CALENDAR ═══════════ -->
+    <div class="tab-view" id="tab-calendar">
+        <div class="card">
+            <div class="cal-header">
+                <h3 id="calMonthLabel"></h3>
+                <div class="cal-nav">
+                    <button id="calPrev"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button id="calToday" style="width:auto;padding:0 10px;font-size:0.6rem;font-weight:700;">Today</button>
+                    <button id="calNext"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+            <div class="cal-detail" id="calDetail">
+                <div class="cal-empty">Tap a date to view that day's activity.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ TAB: CARE ═══════════ -->
+    <div class="tab-view" id="tab-care">
+        <div class="section-nav" id="sectionNav">
+            <button class="section-btn active" data-sec="quickref">📋 Quick Ref</button>
+            <button class="section-btn" data-sec="rules">🚫 Rules</button>
+            <button class="section-btn" data-sec="routine">🕐 Routines</button>
+            <button class="section-btn" data-sec="feeding">🍗 Feeding</button>
+            <button class="section-btn" data-sec="shots">💉 Shots</button>
+            <button class="section-btn" data-sec="diagnosis">🧠 Diagnosis</button>
+        </div>
+
+        <!-- QUICK REF -->
+        <div class="info-section active" id="sec-quickref">
+            <div class="info-block info">
+                <div class="info-block-title"><i class="fa-solid fa-clipboard-list"></i> Quick Reference</div>
+                <table class="ref-table">
+                    <tr><td>Breed</td><td>Husky, ~5 years old</td></tr>
+                    <tr><td>Meals</td><td>2x daily (morning + evening)</td></tr>
+                    <tr><td>Food</td><td>Rice & chicken from fridge — ~2.5 cups/meal, heated ~1 min in microwave</td></tr>
+                    <tr><td>Backup Food</td><td>1 cup kibbles (pantry) + half broth pouch (fridge) + water, microwave 30 sec</td></tr>
+                    <tr><td>Water</td><td>Filtered ONLY — lever next to faucet, NOT the faucet</td></tr>
+                    <tr><td>Crate</td><td>Locked at night & rest; stuffed animal always inside</td></tr>
+                    <tr><td>White Noise</td><td>"Hey Siri, turn on white noise" (speaker near crate)</td></tr>
+                    <tr><td>Shock Collar</td><td>Max setting: 7 — light tap only. Button between prongs to turn on. Remote: bottom-right button, press & hold. Switch set to 1.</td></tr>
+                    <tr><td>Leash/Collar</td><td>Always stored hidden in garage</td></tr>
+                    <tr><td>Walk Location</td><td>Turn right — small park with bench, few houses down</td></tr>
+                    <tr><td>Command</td><td>Say "Heel, Big Girl" in a dominant tone</td></tr>
+                    <tr><td>Bedtime</td><td>Office door closed. No standing food/water anywhere.</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- RULES -->
+        <div class="info-section" id="sec-rules">
+            <div class="info-block danger">
+                <div class="info-block-title"><i class="fa-solid fa-ban"></i> Important Rules — Read First</div>
+                <div class="info-item"><strong>No standing food or water</strong><em>Remove both as soon as she finishes or walks away.</em></div>
+                <div class="info-item"><strong>Filtered water ONLY</strong><em>Use the lever next to the faucet — NEVER the faucet itself.</em></div>
+                <div class="info-item"><strong>Keep bathroom door closed</strong><em>She will drink from the toilet.</em></div>
+                <div class="info-item"><strong>Office door closed at bedtime</strong><em>No access to that room overnight.</em></div>
+                <div class="info-item"><strong>Hide leash & collar in garage</strong><em>She shouldn't see you grab them before a walk.</em></div>
+                <div class="info-item"><strong>Shock collar max: 7</strong><em>Only a light tap if she drifts off-leash. She's generally well-behaved.</em></div>
+                <div class="info-item"><strong>Enter through garage when gate is up</strong><em>Not the front door — when metal cage barrier is set up for free roaming.</em></div>
+            </div>
+            <div class="info-block danger" style="margin-top: 10px;">
+                <div class="info-block-title"><i class="fa-solid fa-skull-crossbones"></i> Never Do List (Behavioral)</div>
+                <div class="info-item"><strong>DO NOT punish the growl</strong><em>Suppress the growl → she skips the warning → goes straight to bite.</em></div>
+                <div class="info-item"><strong>DO NOT allow toddler near her while eating or in crate</strong><em>High-risk bite zone.</em></div>
+                <div class="info-item"><strong>DO NOT "free feed"</strong><em>Leaving food out increases anxiety — she feels she has to guard it 24/7.</em></div>
+                <div class="info-item"><strong>DO NOT force guests to pet her</strong><em>If lethargic/tense, she's overstimulated. Forced interaction → fear-based bite.</em></div>
+                <div class="info-item"><strong>NEVER "reach and grab"</strong><em>Always "trade up" with high-value treat (chicken) so she chooses to drop the item.</em></div>
+                <div class="info-item"><strong>NEVER feed in high-traffic area</strong><em>Bowl must be in corner or crate where no one walks behind her.</em></div>
+                <div class="info-item"><strong>NEVER let toddler "hug" her</strong><em>Huskies perceive hugs as restraint → triggers fight-or-flight.</em></div>
+                <div class="info-item"><strong>NEVER skip the morning walk</strong><em>A walk is "job" time. Without a job, Huskies become anxious/destructive.</em></div>
+            </div>
+            <div class="info-block info" style="margin-top: 10px;">
+                <div class="info-block-title"><i class="fa-solid fa-lightbulb"></i> Tips & Reminders</div>
+                <div class="info-item"><strong>She's generally very well-behaved</strong><em>The shock collar is just a safety measure for off-leash time.</em></div>
+                <div class="info-item"><strong>White noise helps her settle</strong><em>Always turn it on when crating.</em></div>
+                <div class="info-item"><strong>Stuffed animal = comfort item</strong><em>Make sure it's in the crate every time.</em></div>
+                <div class="info-item"><strong>When in doubt, use filtered lever</strong><em>Never the faucet, never leave standing water.</em></div>
+                <div class="info-item"><strong>Use "Heel" command</strong><em>Say it in a dominant way. Works even with shock collar correction.</em></div>
+            </div>
+        </div>
+
+        <!-- ROUTINES -->
+        <div class="info-section" id="sec-routine">
+            <div class="card" style="margin-top:10px;box-shadow:none;border:1px solid var(--border);">
+                <div class="card-title"><i class="fa-solid fa-calendar-check"></i> Full Daily Routine</div>
+                <p style="font-size:0.68rem;color:var(--text-mid);margin-bottom:8px;">From the Big Girl Care Guide. Follow this exact timing for stability.</p>
+
+                <div class="routine-header">☀️ Morning — 7:00 to 8:00 AM</div>
+                <div class="info-item"><strong>1. Wake Up & First Outing</strong><em>Open crate → let her straight outside through back door. Just a couple minutes for bathroom.</em></div>
+                <div class="info-item"><strong>2. Prepare & Serve Breakfast</strong><em>While she's outside: ~2.5 cups rice & chicken, heated, in bowl. Filtered water in separate bowl. Open back door — hold food & water so she sees them — walk to crate, place both inside, close crate door. Let her eat in peace.</em></div>
+                <div class="info-item"><strong>3. Post-Meal Walk</strong><em>Wait until done. Remove leftover food & water (never leave standing). Let her outside 15–20 min. For walk: shock collar + leash on → turn right to park → leash off at park, collar setting ≤ 7. Light tap if she drifts.</em></div>
+                <div class="info-item"><strong>4. Back Inside — Crate Rest</strong><em>Remove shock collar → store in garage with leash. Crate with stuffed animal. Window OPEN (daytime). "Hey Siri, turn on white noise." Close crate door.</em></div>
+
+                <div class="routine-header">🌤️ Midday — 1:00 to 2:00 PM</div>
+                <div class="info-item"><strong>No meal — hydration & exercise only</strong><em>Give filtered water (remove when done). Walk to park — same collar/leash process. Return → remove collar, store in garage.</em></div>
+                <div class="info-item"><strong>Free Roam Time</strong><em>Put up metal gate, let her free-roam inside. Nothing out she could chew on. Bathroom door closed.</em></div>
+
+                <div class="routine-header">🌇 Evening — 6:00 to 8:00 PM</div>
+                <div class="info-item"><strong>1. Evening Outing</strong><em>Let her out in backyard for bathroom break.</em></div>
+                <div class="info-item"><strong>2. Serve Dinner</strong><em>Same as morning: ~2.5 cups rice & chicken, heated, in crate with filtered water. Close crate, let her eat.</em></div>
+                <div class="info-item"><strong>3. Post-Dinner Outing</strong><em>Remove leftover food & water. Let her out in backyard one more time.</em></div>
+
+                <div class="routine-header">🌙 Bedtime</div>
+                <div class="info-item"><strong>4. Settle In for the Night</strong><em>Place in crate with stuffed animal. Close window. Close & lock crate door. "Hey Siri, turn on white noise." Confirm: no standing food, no standing water, bathroom door closed, office door closed.</em></div>
+            </div>
+        </div>
+
+        <!-- FEEDING -->
+        <div class="info-section" id="sec-feeding">
+            <div class="info-block warn">
+                <div class="info-block-title"><i class="fa-solid fa-utensils"></i> Feeding Cheat Sheet</div>
+                <table class="feed-table">
+                    <tr><th>Meal</th><th>Time</th><th>Food</th><th>Water</th></tr>
+                    <tr><td><strong>Breakfast</strong></td><td>7–8 AM</td><td>~2.5 cups rice & chicken (heated ~1 min)</td><td>Filtered — remove after</td></tr>
+                    <tr><td><strong>Midday</strong></td><td>1–2 PM</td><td>None</td><td>Filtered — remove after</td></tr>
+                    <tr><td><strong>Dinner</strong></td><td>6–8 PM</td><td>~2.5 cups rice & chicken (heated ~1 min)</td><td>Filtered — remove after</td></tr>
+                </table>
+            </div>
+            <div class="backup-card">
+                <div class="info-block-title"><i class="fa-solid fa-box-open"></i> Backup Food (If Out of Chicken & Rice)</div>
+                <div class="info-item"><strong>Kibbles + Chicken Broth</strong><em>1 cup of kibbles from the pantry + half of a broth pouch from the fridge + a little water. Microwave ~30 seconds.</em></div>
+            </div>
+            <div class="info-block safe" style="margin-top: 10px;">
+                <div class="info-block-title"><i class="fa-solid fa-heart-pulse"></i> Recovery & Maintenance Diet</div>
+                <div class="info-item"><strong>✅ Boiled Chicken Breast</strong><em>Shredded, no skin, no bones, no seasoning.</em></div>
+                <div class="info-item"><strong>✅ White Rice (Overcooked)</strong><em>Mushy — easy to digest.</em></div>
+                <div class="info-item"><strong>✅ Pureed Pumpkin</strong><em>100% pumpkin (NOT pie filling). Soothes the colon.</em></div>
+                <div class="info-item"><strong>✅ Daily Probiotics</strong><em>Purina FortiFlora or Bernie's Perfect Poop.</em></div>
+                <div class="info-item" style="margin-top:6px;padding-top:8px;border-top:2px dashed rgba(0,0,0,0.06);"><strong>🚫 No store-bought treats</strong><em>Too many additives for a sensitive gut.</em></div>
+                <div class="info-item"><strong>🚫 No high-fat proteins</strong><em>No beef, bacon, or skin.</em></div>
+                <div class="info-item"><strong>🚫 No dairy</strong><em>Most Huskies are lactose intolerant — worsens colitis.</em></div>
+                <div class="info-item"><strong>🚫 No corn, wheat, soy, meat by-products</strong><em>Fillers that cause inflammation.</em></div>
+            </div>
+            <div class="info-block info" style="margin-top:10px;">
+                <div class="info-block-title"><i class="fa-solid fa-star"></i> Recommended Brands</div>
+                <div class="info-item"><strong>🥇 Orijen Six Fish / ACANA Pacifica</strong><em>Top-tier kibble. Grain-free, high-protein, loaded with Omega-3s.</em></div>
+                <div class="info-item"><strong>🥈 Purina Pro Plan Sensitive Skin & Stomach</strong><em>Lamb or Salmon & Rice. Contains live probiotics.</em></div>
+                <div class="info-item"><strong>🥣 Wellness Core 95% Whitefish & Salmon</strong><em>Wet food topper — a "lure" to get her excited about her bowl.</em></div>
+                <div class="info-item"><strong>💊 Zesty Paws Salmon Oil</strong><em>Coat & brain health.</em></div>
+                <div class="info-item"><strong>💊 Bernie's Perfect Poop</strong><em>Fiber/prebiotic/probiotic/enzyme blend for firming stools.</em></div>
+            </div>
+        </div>
+
+        <!-- SHOTS -->
+        <div class="info-section" id="sec-shots">
+            <div class="info-block safe">
+                <div class="info-block-title"><i class="fa-solid fa-syringe"></i> Vaccination & Shot Tracker</div>
+                <p style="font-size:0.65rem;color:var(--text-mid);margin-bottom:8px;">Track vaccines, flea/tick meds, and deworming. Add entries below.</p>
+                <div id="vaxList"><div class="cal-empty">No vaccinations tracked yet. Add one below.</div></div>
+            </div>
+            <div class="card" style="margin-top:10px;">
+                <div class="card-title" style="font-size:0.78rem;"><i class="fa-solid fa-plus-circle"></i> Add Shot / Medication</div>
+                <div class="add-vax-row">
+                    <input type="text" id="vaxName" placeholder="Name (e.g., Rabies, Bordetella)">
+                    <input type="date" id="vaxDate" title="Date given">
+                </div>
+                <div class="add-vax-row" style="margin-top:6px;">
+                    <select id="vaxInterval">
+                        <option value="365">Yearly</option>
+                        <option value="180">6 Months</option>
+                        <option value="90">3 Months</option>
+                        <option value="30">Monthly</option>
+                        <option value="1095">3 Years</option>
+                    </select>
+                    <button class="btn-add-vax" id="addVaxBtn">Add</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- DIAGNOSIS -->
+        <div class="info-section" id="sec-diagnosis">
+            <div class="info-block info">
+                <div class="info-block-title"><i class="fa-solid fa-brain"></i> Diagnosis: Resource Guarding via Environmental Displacement</div>
+                <div class="info-item"><strong>The Large Home Paradox</strong><em>A larger home = more territory to "clear" for safety. She doesn't feel she owns the space yet, so she hyper-focuses on small portable items (leash, toys, bowl).</em></div>
+                <div class="info-item"><strong>The "Half-Time" Toddler Trigger</strong><em>The 50/50 custody schedule prevents her from reaching homeostasis. Just as she relaxes, the "unpredictable element" returns — keeping her in hyper-vigilance, which manifests as Hemorrhagic Colitis (blood in stool).</em></div>
+                <div class="info-item"><strong>Lethargy = Learned Helplessness</strong><em>She feels her space is being invaded and she cannot stop it, so she shuts down. This is a defense mechanism, not laziness.</em></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ TAB: LOG ═══════════ -->
+    <div class="tab-view" id="tab-log">
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Activity Log (CST)</div>
+            <div id="logList"><div class="empty-log">No entries yet.</div></div>
+            <button class="btn-secondary" id="clearLogBtn">Clear Log History</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ BOTTOM NAV ═══ -->
+<div class="bottom-nav" id="bottomNav">
+    <button class="nav-btn active" data-tab="tab-daily"><i class="fa-solid fa-house"></i><span>Today</span></button>
+    <button class="nav-btn" data-tab="tab-calendar"><i class="fa-solid fa-calendar-days"></i><span>Calendar</span></button>
+    <button class="nav-btn" data-tab="tab-care"><i class="fa-solid fa-book-open"></i><span>Care</span></button>
+    <button class="nav-btn" data-tab="tab-log"><i class="fa-solid fa-clock-rotate-left"></i><span>Log</span></button>
+</div>
+
+<!-- ═══ TRADE-UP MODAL ═══ -->
+<div class="modal-overlay" id="modal">
+    <div class="modal">
+        <h3>🚨 Emergency Trade-Up</h3>
+        <div class="step"><div class="step-num">1</div><div class="step-text">Toss a <strong>high-value treat</strong> (chicken, carrot) about 4 feet away from the guarded item.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Wait</strong> for her to move toward the treat. Do not reach yet.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text"><strong>Calmly secure</strong> the guarded item while she's occupied.</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-text">Return a <strong>safe replacement toy</strong> once the child is clear of the area.</div></div>
+        <button class="btn-close" id="closeModal">Got It — Close</button>
+    </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════
+   SUPABASE CLOUD SYNC
+   ═══════════════════════════════════════ */
+const SUPABASE_URL = 'https://dwjfalxktunadksddmzw.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3amZhbHhrdHVuYWRrc2RkbXp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1OTkwMjQsImV4cCI6MjA4ODE3NTAyNH0.fWCU-H23WHRH3lgdYY5U9uQR9cO1UIEWCz3MosVWtv8';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const STATE_ID = 'daily-state-v3';
+const LOG_ID = 'activity-log-v3';
+const HISTORY_ID = 'calendar-history';
+const VAX_ID = 'vaccination-tracker';
+
+/* ═══ TIMEZONE HELPERS ═══ */
+function getCSTNow() { return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' })); }
+function getCSTDate() { return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }); }
+function getCSTString() { return new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }); }
+function formatDateNice(dateStr) {
+    var d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+/* ═══ CST CLOCK ═══ */
+function updateClock() {
+    var cst = new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+    document.getElementById('cstClock').textContent = cst + ' CST';
+}
+updateClock(); setInterval(updateClock, 1000);
+
+/* ═══ SCHEDULE (from PDF) ═══ */
+var schedule = [
+    { time: "7:00 AM", task: "Wake Up & First Outing", note: "Open crate → straight outside, back door", group: "morning" },
+    { time: "7:15 AM", task: "Serve Breakfast in Crate", note: "~2.5 cups rice & chicken + filtered water, close crate", group: "morning" },
+    { time: "7:30 AM", task: "Post-Meal Walk / Yard Time", note: "Remove food/water first. Collar + leash → park", group: "morning" },
+    { time: "8:00 AM", task: "Crate Rest + White Noise", note: "Collar in garage. Stuffed animal. Window open. Siri white noise.", group: "morning" },
+    { time: "1:00 PM", task: "Midday Water + Walk", note: "Filtered water (remove after). Walk to park, same process.", group: "midday" },
+    { time: "1:30 PM", task: "Free Roam (Gate Up)", note: "Metal gate up. Nothing chewable out. Bathroom door closed.", group: "midday" },
+    { time: "6:00 PM", task: "Evening Outing", note: "Backyard bathroom break", group: "evening" },
+    { time: "6:15 PM", task: "Serve Dinner in Crate", note: "Same as breakfast: ~2.5 cups rice & chicken + filtered water", group: "evening" },
+    { time: "6:45 PM", task: "Post-Dinner Outing", note: "Remove food/water. Backyard one more time.", group: "evening" },
+    { time: "9:00 PM", task: "Bedtime Lockdown", note: "Crate + stuffed animal. Window closed. Lock crate. White noise. No food/water. Bathroom + office doors closed.", group: "night" }
+];
+
+var groupLabels = { morning: "☀️ Morning", midday: "🌤️ Midday", evening: "🌇 Evening", night: "🌙 Night" };
+
+/* ═══ BUILD TASK LIST ═══ */
+var listEl = document.getElementById('taskList');
+var lastGroup = '';
+var taskHTML = '';
+schedule.forEach(function(item, i) {
+    if (item.group !== lastGroup) {
+        taskHTML += '<div class="routine-header">' + groupLabels[item.group] + '</div>';
+        lastGroup = item.group;
+    }
+    taskHTML += '<div class="task-item" id="row-' + i + '"><div class="time-pill">' + item.time + '</div><div class="task-info"><span class="task-name">' + item.task + '</span><span class="task-note">' + item.note + '</span></div><div class="chk-wrap"><input type="checkbox" id="task-' + i + '" data-idx="' + i + '"></div></div>';
+});
+listEl.innerHTML = taskHTML;
+
+/* ═══ STATE ═══ */
+var state = { toddler: false, notes: '', tasks: Array(schedule.length).fill(false), date: '' };
+var logEntries = [];
+var calHistory = {};
+var vaccinations = [];
+
+/* ═══ MIDNIGHT AUTO-REFRESH ═══ */
+function scheduleMidnightReset() {
+    var now = getCSTNow();
+    var midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    var ms = midnight.getTime() - now.getTime();
+    setTimeout(function() {
+        archiveTodayAndReset();
+        scheduleMidnightReset();
+    }, ms);
+}
+
+async function archiveTodayAndReset() {
+    if (state.date) {
+        calHistory[state.date] = { tasks: state.tasks.slice(), notes: state.notes, toddler: state.toddler };
+        await saveCalHistory();
+    }
+    state = { toddler: false, notes: '', tasks: Array(schedule.length).fill(false), date: getCSTDate() };
+    applyState();
+    addLog('toggle', '🔄 New day — checklist auto-reset');
+    await saveState();
+}
+
+/* ═══ LOAD FROM SUPABASE ═══ */
+async function loadState() {
+    try {
+        var res = await sb.from('husky_logs').select('content').eq('id', STATE_ID).single();
+        if (res.data && res.data.content) {
+            var s = res.data.content;
+            var today = getCSTDate();
+            if (s.date !== today) {
+                // Archive previous day before resetting
+                if (s.date && (s.tasks.some(Boolean) || s.notes)) {
+                    calHistory[s.date] = { tasks: s.tasks.slice(), notes: s.notes, toddler: s.toddler };
+                }
+                s.tasks = Array(schedule.length).fill(false);
+                s.notes = '';
+                s.date = today;
+            }
+            state = Object.assign({}, state, s);
+        }
+    } catch(e) { console.log('No saved state yet'); state.date = getCSTDate(); }
+
+    try {
+        var res2 = await sb.from('husky_logs').select('content').eq('id', LOG_ID).single();
+        if (res2.data && res2.data.content) logEntries = res2.data.content;
+    } catch(e) {}
+
+    try {
+        var res3 = await sb.from('husky_logs').select('content').eq('id', HISTORY_ID).single();
+        if (res3.data && res3.data.content) calHistory = res3.data.content;
+    } catch(e) {}
+
+    try {
+        var res4 = await sb.from('husky_logs').select('content').eq('id', VAX_ID).single();
+        if (res4.data && res4.data.content) vaccinations = res4.data.content;
+    } catch(e) {}
+
+    applyState();
+    renderLog();
+    renderVax();
+    syncIndicator('ready');
+    scheduleMidnightReset();
+}
+
+function applyState() {
+    document.getElementById('toddlerSwitch').checked = state.toddler;
+    toggleAlert(state.toddler);
+    document.getElementById('dailyNotes').value = state.notes || '';
+    state.tasks.forEach(function(done, i) {
+        var cb = document.getElementById('task-' + i);
+        if (cb) cb.checked = done;
+        var row = document.getElementById('row-' + i);
+        if (row) { if (done) row.classList.add('done'); else row.classList.remove('done'); }
+    });
+    updateProgress();
+}
+
+/* ═══ SAVE FUNCTIONS ═══ */
+async function saveState() {
+    state.date = getCSTDate();
+    syncIndicator('saving');
+    try {
+        var res = await sb.from('husky_logs').upsert({ id: STATE_ID, content: state, updated_at: new Date().toISOString() });
+        if (res.error) throw res.error;
+        syncIndicator('saved');
+    } catch(e) { console.error('Save error:', e); syncIndicator('error'); }
+}
+
+async function saveLog() {
+    try { await sb.from('husky_logs').upsert({ id: LOG_ID, content: logEntries, updated_at: new Date().toISOString() }); } catch(e) { console.error('Log save error:', e); }
+}
+
+async function saveCalHistory() {
+    try { await sb.from('husky_logs').upsert({ id: HISTORY_ID, content: calHistory, updated_at: new Date().toISOString() }); } catch(e) { console.error('Cal save error:', e); }
+}
+
+async function saveVax() {
+    try { await sb.from('husky_logs').upsert({ id: VAX_ID, content: vaccinations, updated_at: new Date().toISOString() }); } catch(e) { console.error('Vax save error:', e); }
+}
+
+function syncIndicator(m) {
+    var el = document.getElementById('syncStatus');
+    el.className = 'sync-bar';
+    if (m === 'ready') { el.classList.add('ok'); el.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Connected to Cloud'; }
+    else if (m === 'saving') { el.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...'; }
+    else if (m === 'saved') { el.classList.add('ok'); el.innerHTML = '<i class="fa-solid fa-circle-check"></i> Saved to Cloud'; }
+    else if (m === 'error') { el.classList.add('error'); el.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Sync Error'; }
+}
+
+function updateProgress() {
+    var done = state.tasks.filter(Boolean).length;
+    document.getElementById('progressFill').style.width = (done / schedule.length * 100) + '%';
+    document.getElementById('progressText').textContent = done + ' / ' + schedule.length;
+}
+
+function toggleAlert(on) { var el = document.getElementById('toddlerAlert'); if (on) el.classList.add('active'); else el.classList.remove('active'); }
+
+/* ═══ LOG ═══ */
+function addLog(type, text) {
+    logEntries.unshift({ type: type, text: text, ts: getCSTString(), date: getCSTDate() });
+    if (logEntries.length > 500) logEntries = logEntries.slice(0, 500);
+    saveLog();
+    renderLog();
+}
+
+function renderLog() {
+    var el = document.getElementById('logList');
+    if (logEntries.length === 0) { el.innerHTML = '<div class="empty-log">No entries yet. Activity will appear here as you use the tracker.</div>'; return; }
+    el.innerHTML = logEntries.slice(0, 100).map(function(e) {
+        return '<div class="log-entry"><div class="log-time-col"><div class="log-date">' + (e.date || '') + '</div><div class="log-time">' + (e.ts || '') + '</div></div><div class="log-body"><span class="log-type ' + e.type + '">' + e.type + '</span><div class="log-text">' + e.text + '</div></div></div>';
+    }).join('');
+}
+
+/* ═══════════════════════════════════════
+   CALENDAR
+   ═══════════════════════════════════════ */
+var calYear, calMonth, calSelected = null;
+function initCalendar() {
+    var now = getCSTNow();
+    calYear = now.getFullYear();
+    calMonth = now.getMonth();
+    renderCalendar();
+}
+
+function renderCalendar() {
+    var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    document.getElementById('calMonthLabel').textContent = months[calMonth] + ' ' + calYear;
+
+    var grid = document.getElementById('calGrid');
+    var html = '';
+    var dows = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    dows.forEach(function(d) { html += '<div class="cal-dow">' + d + '</div>'; });
+
+    var firstDay = new Date(calYear, calMonth, 1).getDay();
+    var daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    var todayStr = getCSTDate();
+    var todayParts = todayStr.split('-');
+    var todayY = parseInt(todayParts[0]), todayM = parseInt(todayParts[1]) - 1, todayD = parseInt(todayParts[2]);
+
+    for (var i = 0; i < firstDay; i++) { html += '<div class="cal-day empty"></div>'; }
+    for (var d = 1; d <= daysInMonth; d++) {
+        var dateStr = calYear + '-' + String(calMonth + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        var classes = 'cal-day';
+        var isFuture = (calYear > todayY) || (calYear === todayY && calMonth > todayM) || (calYear === todayY && calMonth === todayM && d > todayD);
+        var isToday = (calYear === todayY && calMonth === todayM && d === todayD);
+        if (isToday) classes += ' today';
+        if (isFuture) classes += ' future';
+        if (calHistory[dateStr] || (isToday && state.tasks.some(Boolean))) classes += ' has-data';
+        if (calSelected === dateStr) classes += ' selected';
+        html += '<div class="' + classes + '" data-date="' + dateStr + '">' + d + '</div>';
+    }
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.cal-day:not(.empty):not(.future)').forEach(function(el) {
+        el.addEventListener('click', function() { selectCalDay(this.dataset.date); });
+    });
+}
+
+function selectCalDay(dateStr) {
+    calSelected = dateStr;
+    renderCalendar();
+    var detail = document.getElementById('calDetail');
+    var todayStr = getCSTDate();
+    var data = (dateStr === todayStr) ? { tasks: state.tasks.slice(), notes: state.notes, toddler: state.toddler } : calHistory[dateStr];
+
+    if (!data) {
+        detail.innerHTML = '<div class="cal-empty">No activity recorded for this date.</div>';
+        return;
+    }
+
+    var html = '<div class="cal-detail-date">' + formatDateNice(dateStr) + '</div>';
+    if (data.toddler) html += '<div style="font-size:0.65rem;color:var(--danger-text);font-weight:700;margin-bottom:6px;">👶 Toddler was in house</div>';
+
+    schedule.forEach(function(item, i) {
+        var done = data.tasks && data.tasks[i];
+        html += '<div class="cal-task-row"><span class="cal-check">' + (done ? '✅' : '⬜') + '</span><span style="flex:1">' + item.task + '</span><span class="time-pill">' + item.time + '</span></div>';
+    });
+
+    if (data.notes) { html += '<div class="cal-notes">' + data.notes + '</div>'; }
+    detail.innerHTML = html;
+}
+
+document.getElementById('calPrev').addEventListener('click', function() {
+    calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } calSelected = null; renderCalendar();
+    document.getElementById('calDetail').innerHTML = '<div class="cal-empty">Tap a date to view that day\'s activity.</div>';
+});
+document.getElementById('calNext').addEventListener('click', function() {
+    var now = getCSTNow();
+    if (calYear === now.getFullYear() && calMonth === now.getMonth()) return;
+    calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } calSelected = null; renderCalendar();
+    document.getElementById('calDetail').innerHTML = '<div class="cal-empty">Tap a date to view that day\'s activity.</div>';
+});
+document.getElementById('calToday').addEventListener('click', function() {
+    var now = getCSTNow(); calYear = now.getFullYear(); calMonth = now.getMonth();
+    selectCalDay(getCSTDate());
+});
+
+/* ═══════════════════════════════════════
+   VACCINATION TRACKER
+   ═══════════════════════════════════════ */
+function renderVax() {
+    var el = document.getElementById('vaxList');
+    if (vaccinations.length === 0) { el.innerHTML = '<div class="cal-empty">No vaccinations tracked yet. Add one below.</div>'; return; }
+    var today = new Date(getCSTDate() + 'T12:00:00');
+    var html = '';
+    vaccinations.sort(function(a, b) {
+        var dueA = new Date(new Date(a.date + 'T12:00:00').getTime() + a.interval * 86400000);
+        var dueB = new Date(new Date(b.date + 'T12:00:00').getTime() + b.interval * 86400000);
+        return dueA - dueB;
+    });
+    vaccinations.forEach(function(v, i) {
+        var given = new Date(v.date + 'T12:00:00');
+        var due = new Date(given.getTime() + v.interval * 86400000);
+        var daysUntil = Math.ceil((due - today) / 86400000);
+        var statusClass, label;
+        if (daysUntil < 0) { statusClass = 'overdue'; label = Math.abs(daysUntil) + 'd overdue'; }
+        else if (daysUntil <= 30) { statusClass = 'due-soon'; label = daysUntil + 'd left'; }
+        else { statusClass = 'current'; label = due.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+
+        html += '<div class="vax-item"><div class="vax-status ' + statusClass + '"></div><div class="vax-info"><div class="vax-name">' + v.name + '</div><div class="vax-date">Given: ' + given.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + '</div></div><div class="vax-due ' + statusClass + '">' + label + '</div><button style="background:none;border:none;color:var(--text-light);cursor:pointer;font-size:0.7rem;padding:4px;" onclick="removeVax(' + i + ')"><i class="fa-solid fa-trash"></i></button></div>';
+    });
+    el.innerHTML = html;
+}
+
+document.getElementById('addVaxBtn').addEventListener('click', function() {
+    var name = document.getElementById('vaxName').value.trim();
+    var date = document.getElementById('vaxDate').value;
+    var interval = parseInt(document.getElementById('vaxInterval').value);
+    if (!name || !date) return;
+    vaccinations.push({ name: name, date: date, interval: interval });
+    document.getElementById('vaxName').value = '';
+    document.getElementById('vaxDate').value = '';
+    saveVax();
+    renderVax();
+    addLog('note', '💉 Added vaccination: ' + name);
+});
+
+window.removeVax = function(i) {
+    if (!confirm('Remove ' + vaccinations[i].name + '?')) return;
+    var name = vaccinations[i].name;
+    vaccinations.splice(i, 1);
+    saveVax();
+    renderVax();
+    addLog('note', '🗑️ Removed vaccination: ' + name);
+};
+
+/* ═══════════════════════════════════════
+   PUSH NOTIFICATIONS
+   ═══════════════════════════════════════ */
+var notifEnabled = false;
+var notifSchedules = [
+    { hour: 7, min: 0, msg: "☀️ Good morning! Time for Big Girl's wake up & first outing." },
+    { hour: 7, min: 15, msg: "🍗 Breakfast time — serve ~2.5 cups rice & chicken in crate." },
+    { hour: 7, min: 30, msg: "🐕 Post-meal walk time! Collar + leash → park." },
+    { hour: 12, min: 55, msg: "🌤️ Midday coming up — water + walk for Big Girl." },
+    { hour: 18, min: 0, msg: "🌇 Evening routine — let Big Girl out for bathroom break." },
+    { hour: 18, min: 15, msg: "🍗 Dinner time — same as breakfast in crate." },
+    { hour: 20, min: 55, msg: "🌙 Almost bedtime — prep crate, stuffed animal, check doors." }
+];
+
+function renderNotifBanner() {
+    var el = document.getElementById('notifBanner');
+    if (!('Notification' in window)) {
+        el.innerHTML = '<div class="notif-banner"><i class="fa-solid fa-bell-slash"></i><div class="notif-banner-text"><div class="notif-banner-title">Notifications Not Supported</div><div class="notif-banner-sub">Open in Safari and add to Home Screen for push notifications.</div></div></div>';
+        return;
+    }
+    var perm = Notification.permission;
+    if (perm === 'granted') {
+        notifEnabled = true;
+        el.innerHTML = '<div class="notif-banner enabled"><i class="fa-solid fa-bell"></i><div class="notif-banner-text"><div class="notif-banner-title">Notifications Active</div><div class="notif-banner-sub">You\'ll get reminders for each daily task.</div></div></div>';
+        scheduleNotifications();
+    } else {
+        el.innerHTML = '<div class="notif-banner" id="enableNotifBtn"><i class="fa-solid fa-bell"></i><div class="notif-banner-text"><div class="notif-banner-title">Enable Reminders</div><div class="notif-banner-sub">Tap to get push notifications for daily tasks.</div></div></div>';
+        document.getElementById('enableNotifBtn').addEventListener('click', requestNotifPermission);
+    }
+}
+
+async function requestNotifPermission() {
+    var perm = await Notification.requestPermission();
+    if (perm === 'granted') { notifEnabled = true; addLog('toggle', '🔔 Notifications enabled'); }
+    renderNotifBanner();
+}
+
+function scheduleNotifications() {
+    if (!notifEnabled) return;
+    var now = getCSTNow();
+    notifSchedules.forEach(function(ns) {
+        var target = new Date(now);
+        target.setHours(ns.hour, ns.min, 0, 0);
+        var ms = target.getTime() - now.getTime();
+        if (ms > 0 && ms < 86400000) {
+            setTimeout(function() {
+                if (Notification.permission === 'granted') {
+                    new Notification('Come Home Big Girl', { body: ns.msg, icon: '🐕‍🦺', tag: 'bg-' + ns.hour + '-' + ns.min });
+                }
+            }, ms);
+        }
+    });
+
+    // Also check for upcoming vaccinations
+    var today = new Date(getCSTDate() + 'T12:00:00');
+    vaccinations.forEach(function(v) {
+        var due = new Date(new Date(v.date + 'T12:00:00').getTime() + v.interval * 86400000);
+        var daysUntil = Math.ceil((due - today) / 86400000);
+        if (daysUntil >= 0 && daysUntil <= 7) {
+            setTimeout(function() {
+                if (Notification.permission === 'granted') {
+                    new Notification('💉 Vaccination Reminder', { body: v.name + ' is due ' + (daysUntil === 0 ? 'TODAY' : 'in ' + daysUntil + ' days') + '!', tag: 'vax-' + v.name });
+                }
+            }, 5000);
+        }
+    });
+}
+
+/* ═══════════════════════════════════════
+   EVENT HANDLERS
+   ═══════════════════════════════════════ */
+document.getElementById('toddlerSwitch').addEventListener('change', function() {
+    state.toddler = this.checked;
+    toggleAlert(this.checked);
+    addLog('toggle', this.checked ? 'Toddler toggled ON — heightened awareness' : 'Toddler toggled OFF');
+    saveState();
+});
+
+document.querySelectorAll('#taskList input[type="checkbox"]').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+        var i = parseInt(this.dataset.idx);
+        state.tasks[i] = this.checked;
+        var row = document.getElementById('row-' + i);
+        if (this.checked) row.classList.add('done'); else row.classList.remove('done');
+        updateProgress();
+        addLog('task', (this.checked ? '✅' : '⬜') + ' ' + schedule[i].task + ' (' + schedule[i].time + ')');
+        saveState();
+    });
+});
+
+var noteTimer;
+document.getElementById('dailyNotes').addEventListener('input', function() {
+    var self = this;
+    state.notes = self.value;
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(function() {
+        saveState();
+        if (self.value.trim()) addLog('note', self.value.trim().substring(0, 120) + (self.value.length > 120 ? '...' : ''));
+    }, 1500);
+});
+
+/* ═══ MODAL ═══ */
+document.getElementById('tradeBtn').addEventListener('click', function() { document.getElementById('modal').classList.add('open'); });
+document.getElementById('closeModal').addEventListener('click', function() { document.getElementById('modal').classList.remove('open'); });
+document.getElementById('modal').addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
+
+/* ═══ RESET ═══ */
+document.getElementById('resetBtn').addEventListener('click', async function() {
+    if (!confirm("Reset today's data?")) return;
+    // Archive before reset
+    if (state.date && (state.tasks.some(Boolean) || state.notes)) {
+        calHistory[state.date] = { tasks: state.tasks.slice(), notes: state.notes, toddler: state.toddler };
+        await saveCalHistory();
+    }
+    state = { toddler: false, notes: '', tasks: Array(schedule.length).fill(false), date: getCSTDate() };
+    addLog('toggle', '🔄 Daily data reset');
+    await saveState();
+    applyState();
+});
+
+document.getElementById('clearLogBtn').addEventListener('click', async function() {
+    if (!confirm('Clear all log history?')) return;
+    logEntries = [];
+    await saveLog();
+    renderLog();
+});
+
+/* ═══ NAV ═══ */
+document.querySelectorAll('.nav-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.nav-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-view').forEach(function(t) { t.classList.remove('active'); });
+        this.classList.add('active');
+        document.getElementById(this.dataset.tab).classList.add('active');
+    });
+});
+
+document.querySelectorAll('.section-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.section-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.info-section').forEach(function(s) { s.classList.remove('active'); });
+        this.classList.add('active');
+        document.getElementById('sec-' + this.dataset.sec).classList.add('active');
+    });
+});
+
+/* ═══ INIT ═══ */
+loadState().then(function() {
+    initCalendar();
+    renderNotifBanner();
+});
+</script>
+</body>
+</html>
