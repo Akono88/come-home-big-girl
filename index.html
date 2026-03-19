@@ -85,18 +85,22 @@
         .card-title { font-family: 'Fraunces', Georgia, serif; font-weight: 700; color: var(--pink-deep); font-size: 0.85rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
         .card-title i { font-size: 0.75rem; opacity: 0.65; }
 
-        /* ═══ TODDLER TOGGLE ═══ */
+        /* ═══ TIMEOUT TOGGLE ═══ */
         .toggle-row { display: flex; justify-content: space-between; align-items: center; }
         .toggle-label { font-weight: 800; font-size: 0.78rem; color: var(--pink-deep); letter-spacing: 0.5px; }
         .toggle-sub { font-size: 0.58rem; color: var(--text-light); margin-top: 1px; font-weight: 500; }
         .switch { position: relative; width: 52px; height: 28px; flex-shrink: 0; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #e8e0e2; border-radius: 28px; transition: background 0.3s; }
-        .slider::before { content: '🐇'; position: absolute; font-size: 12px; width: 20px; height: 20px; left: 4px; bottom: 4px; background: var(--white); border-radius: 50%; transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
-        input:checked + .slider { background: var(--pink-mid); }
-        input:checked + .slider::before { transform: translateX(24px); content: '👶'; }
-        .toddler-alert { margin-top: 10px; padding: 10px 12px; background: var(--danger-bg); border-radius: 12px; font-size: 0.68rem; color: var(--danger-text); font-weight: 600; display: none; align-items: center; gap: 8px; animation: fadeUp 0.25s ease; line-height: 1.4; }
-        .toddler-alert.active { display: flex; }
+        .slider::before { content: '😊'; position: absolute; font-size: 12px; width: 20px; height: 20px; left: 4px; bottom: 4px; background: var(--white); border-radius: 50%; transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+        input:checked + .slider { background: #e53935; }
+        input:checked + .slider::before { transform: translateX(24px); content: '😤'; }
+        .timeout-alert { margin-top: 10px; padding: 10px 12px; background: #fef2f2; border: 2px solid #e53935; border-radius: 12px; font-size: 0.68rem; color: var(--danger-text); font-weight: 600; display: none; align-items: center; gap: 8px; line-height: 1.4; }
+        .timeout-alert.active { display: flex; }
+        @keyframes flashWarn { 0%, 100% { background: #fef2f2; } 50% { background: #ffcdd2; } }
+        .timeout-flash { animation: flashWarn 1s ease infinite; }
+        .timeout-card-flash { animation: cardFlash 1.5s ease infinite; }
+        @keyframes cardFlash { 0%, 100% { box-shadow: var(--shadow); } 50% { box-shadow: 0 0 18px 4px rgba(229,57,53,0.35), 0 0 0 2px #e53935; } }
 
         /* ═══ PROGRESS ═══ */
         .progress-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -271,10 +275,10 @@
     <div class="tab-view active" id="tab-daily">
         <div class="card">
             <div class="toggle-row">
-                <div><div class="toggle-label">TODDLER IN HOUSE?</div><div class="toggle-sub">Heightened awareness mode</div></div>
+                <div><div class="toggle-label">BIG GIRL ON TIME OUT?</div><div class="toggle-sub">She's feeling grumpy — do not approach</div></div>
                 <label class="switch"><input type="checkbox" id="toddlerSwitch"><span class="slider"></span></label>
             </div>
-            <div class="toddler-alert" id="toddlerAlert"><i class="fa-solid fa-triangle-exclamation"></i> Gate all zones. No unsupervised contact. Keep metal cage barrier up. Enter through garage, not front door. Use "Heel, Big Girl" command in a dominant tone.</div>
+            <div class="timeout-alert" id="toddlerAlert"><i class="fa-solid fa-hand"></i> <strong>DO NOT APPROACH.</strong> Big Girl is feeling grumpy. Give her space — no petting, no eye contact, no reaching. Let her decompress in her crate with white noise. Wait for calm body language before interacting.</div>
         </div>
         <div class="card">
             <div class="card-title"><i class="fa-solid fa-paw"></i> Daily Hop-List</div>
@@ -652,6 +656,9 @@ async function saveState() {
         var res = await sb.from('husky_logs').upsert({ id: STATE_ID, content: state, updated_at: new Date().toISOString() });
         if (res.error) throw res.error;
         syncIndicator('saved');
+        // Always keep calendar history in sync with today's data
+        calHistory[state.date] = { tasks: state.tasks.slice(), notes: state.notes, toddler: state.toddler };
+        await saveCalHistory();
     } catch(e) { console.error('Save error:', e); syncIndicator('error'); }
 }
 
@@ -682,7 +689,21 @@ function updateProgress() {
     document.getElementById('progressText').textContent = done + ' / ' + schedule.length;
 }
 
-function toggleAlert(on) { var el = document.getElementById('toddlerAlert'); if (on) el.classList.add('active'); else el.classList.remove('active'); }
+function toggleAlert(on) {
+    var el = document.getElementById('toddlerAlert');
+    var card = el.closest('.card');
+    if (on) {
+        el.classList.add('active', 'timeout-flash');
+        if (card) card.classList.add('timeout-card-flash');
+        // Send push notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('🚨 Big Girl on Time Out', { body: 'Do NOT approach — she\'s feeling grumpy. Give her space and let her decompress.', tag: 'timeout-alert' });
+        }
+    } else {
+        el.classList.remove('active', 'timeout-flash');
+        if (card) card.classList.remove('timeout-card-flash');
+    }
+}
 
 /* ═══ LOG ═══ */
 function addLog(type, text) {
@@ -758,7 +779,7 @@ function selectCalDay(dateStr) {
     }
 
     var html = '<div class="cal-detail-date">' + formatDateNice(dateStr) + '</div>';
-    if (data.toddler) html += '<div style="font-size:0.65rem;color:var(--danger-text);font-weight:700;margin-bottom:6px;">👶 Toddler was in house</div>';
+    if (data.toddler) html += '<div style="font-size:0.65rem;color:var(--danger-text);font-weight:700;margin-bottom:6px;">😤 Big Girl was on Time Out this day</div>';
 
     schedule.forEach(function(item, i) {
         var done = data.tasks && data.tasks[i];
@@ -907,7 +928,7 @@ function scheduleNotifications() {
 document.getElementById('toddlerSwitch').addEventListener('change', function() {
     state.toddler = this.checked;
     toggleAlert(this.checked);
-    addLog('toggle', this.checked ? 'Toddler toggled ON — heightened awareness' : 'Toddler toggled OFF');
+    addLog('toggle', this.checked ? '😤 Big Girl on Time Out — do not approach' : '😊 Big Girl off Time Out — she\'s feeling better');
     saveState();
 });
 
