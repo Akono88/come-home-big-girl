@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Come Home Big Girl v3</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Big Girl">
+    <meta name="theme-color" content="#c2185b">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -982,8 +987,10 @@ var notifSchedules = [
 
 function renderNotifBanner() {
     var el = document.getElementById('notifBanner');
-    if (!('Notification' in window)) {
-        el.innerHTML = '<div class="notif-banner"><i class="fa-solid fa-bell-slash"></i><div class="notif-banner-text"><div class="notif-banner-title">Notifications Not Supported</div><div class="notif-banner-sub">Open in Safari and add to Home Screen for push notifications.</div></div></div>';
+    var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    var isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    if (!('Notification' in window) || (isIOS && !isStandalone)) {
+        el.innerHTML = '<div class="notif-banner"><i class="fa-solid fa-bell-slash"></i><div class="notif-banner-text"><div class="notif-banner-title">Add to Home Screen First</div><div class="notif-banner-sub">Tap the <strong>Share</strong> button → <strong>Add to Home Screen</strong>, then open from there to enable push notifications.</div></div></div>';
         return;
     }
     var perm = Notification.permission;

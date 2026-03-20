@@ -1,0 +1,18 @@
+{
+    "name": "Come Home Big Girl",
+    "short_name": "Big Girl",
+    "description": "Daily care tracker for Big Girl — the White Rabbit Protocol",
+    "start_url": "/come-home-big-girl/",
+    "scope": "/come-home-big-girl/",
+    "display": "standalone",
+    "background_color": "#fce4ec",
+    "theme_color": "#c2185b",
+    "icons": [
+        {
+            "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🐕‍🦺</text></svg>",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        }
+    ]
+}
