@@ -727,7 +727,7 @@ async function loadState() {
         var res2 = await sb.from('husky_logs').select('content').eq('id', LOG_ID).single();
         if (res2.data && res2.data.content) {
             var lc = res2.data.content;
-            logEntries = lc.entries ? lc.entries : (Array.isArray(lc) ? lc : []);
+            logEntries = Array.isArray(lc.entries) ? lc.entries : (Array.isArray(lc) ? lc : []);
         }
     } catch(e) {}
 
@@ -1163,32 +1163,44 @@ document.getElementById('toddlerSwitch').addEventListener('change', function() {
     saveState();
 });
 
+function handleTaskToggle(i) {
+    var cb = document.getElementById('task-' + i);
+    state.tasks[i] = cb.checked;
+    var row = document.getElementById('row-' + i);
+    if (cb.checked) {
+        row.classList.add('done');
+        row.classList.remove('overdue-flash');
+    } else {
+        row.classList.remove('done');
+    }
+    updateProgress();
+    addLog('task', (cb.checked ? '✅' : '⬜') + ' ' + schedule[i].task + ' (' + schedule[i].time + ')');
+    notify(cb.checked ? '✅ Task Complete' : '⬜ Task Unchecked', schedule[i].task + ' (' + schedule[i].time + ')', 'task-' + i);
+    // Push to all other devices
+    sendPushToAll(
+        cb.checked ? '✅ Task Complete' : '⬜ Task Unchecked',
+        schedule[i].task + ' (' + schedule[i].time + ')',
+        'task-' + i + '-' + Date.now()
+    );
+    var done = state.tasks.filter(Boolean).length;
+    if (done === schedule.length) {
+        notify('🎉 All Tasks Done!', 'Big Girl\'s full daily routine is complete. Great job!', 'all-done');
+        sendPushToAll('🎉 All Tasks Done!', 'Big Girl\'s full daily routine is complete. Great teamwork!', 'all-done-' + Date.now());
+    }
+    saveState();
+}
+
+// Checkbox change handler
 document.querySelectorAll('#taskList input[type="checkbox"]').forEach(function(cb) {
-    cb.addEventListener('change', function() {
-        var i = parseInt(this.dataset.idx);
-        state.tasks[i] = this.checked;
-        var row = document.getElementById('row-' + i);
-        if (this.checked) {
-            row.classList.add('done');
-            row.classList.remove('overdue-flash');
-        } else {
-            row.classList.remove('done');
-        }
-        updateProgress();
-        addLog('task', (this.checked ? '✅' : '⬜') + ' ' + schedule[i].task + ' (' + schedule[i].time + ')');
-        notify(this.checked ? '✅ Task Complete' : '⬜ Task Unchecked', schedule[i].task + ' (' + schedule[i].time + ')', 'task-' + i);
-        // Push to all other devices
-        sendPushToAll(
-            this.checked ? '✅ Task Complete' : '⬜ Task Unchecked',
-            schedule[i].task + ' (' + schedule[i].time + ')',
-            'task-' + i + '-' + Date.now()
-        );
-        var done = state.tasks.filter(Boolean).length;
-        if (done === schedule.length) {
-            notify('🎉 All Tasks Done!', 'Big Girl\'s full daily routine is complete. Great job!', 'all-done');
-            sendPushToAll('🎉 All Tasks Done!', 'Big Girl\'s full daily routine is complete. Great teamwork!', 'all-done-' + Date.now());
-        }
-        saveState();
+    cb.addEventListener('change', function() { handleTaskToggle(parseInt(this.dataset.idx)); });
+});
+
+// Make entire task row clickable (not just the tiny checkbox)
+document.querySelectorAll('.task-item').forEach(function(row) {
+    row.addEventListener('click', function(e) {
+        if (e.target.type === 'checkbox') return; // already handled by change event
+        var cb = this.querySelector('input[type="checkbox"]');
+        if (cb) { cb.checked = !cb.checked; handleTaskToggle(parseInt(cb.dataset.idx)); }
     });
 });
 
@@ -1321,7 +1333,7 @@ function startRealtime() {
             }
 
             if (row.id === LOG_ID) {
-                logEntries = c.entries ? c.entries : (Array.isArray(c) ? c : []);
+                logEntries = Array.isArray(c.entries) ? c.entries : (Array.isArray(c) ? c : []);
                 renderLog();
             }
 
