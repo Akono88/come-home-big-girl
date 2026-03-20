@@ -809,9 +809,7 @@ function toggleAlert(on) {
         el.classList.add('active', 'timeout-flash');
         if (card) card.classList.add('timeout-card-flash');
         // Send push notification
-        if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('🚨 Big Girl on Time Out', { body: 'Do NOT approach — she\'s feeling grumpy. Give her space and let her decompress.', tag: 'timeout-alert-' + Date.now(), requireInteraction: true });
-        }
+        notify('🚨 Big Girl on Time Out', 'Do NOT approach — she\'s feeling grumpy. Give her space and let her decompress.', 'timeout-alert');
     } else {
         el.classList.remove('active', 'timeout-flash');
         if (card) card.classList.remove('timeout-card-flash');
@@ -1026,9 +1024,7 @@ function scheduleNotifications() {
         var ms = target.getTime() - now.getTime();
         if (ms > 0 && ms < 86400000) {
             setTimeout(function() {
-                if (Notification.permission === 'granted') {
-                    new Notification('Come Home Big Girl', { body: ns.msg, icon: '🐕‍🦺', tag: 'bg-' + ns.hour + '-' + ns.min });
-                }
+                notify('Come Home Big Girl', ns.msg, 'bg-' + ns.hour + '-' + ns.min);
             }, ms);
         }
     });
@@ -1040,9 +1036,7 @@ function scheduleNotifications() {
         var daysUntil = Math.ceil((due - today) / 86400000);
         if (daysUntil >= 0 && daysUntil <= 7) {
             setTimeout(function() {
-                if (Notification.permission === 'granted') {
-                    new Notification('💉 Vaccination Reminder', { body: v.name + ' is due ' + (daysUntil === 0 ? 'TODAY' : 'in ' + daysUntil + ' days') + '!', tag: 'vax-' + v.name });
-                }
+                notify('💉 Vaccination Reminder', v.name + ' is due ' + (daysUntil === 0 ? 'TODAY' : 'in ' + daysUntil + ' days') + '!', 'vax-' + v.name);
             }, 5000);
         }
     });
@@ -1119,12 +1113,13 @@ function scheduleOverdueAlerts() {
 
 /* ═══ PUSH NOTIFY HELPER ═══ */
 function notify(title, body, tag) {
-    if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(title, {
-            body: body,
-            tag: (tag || 'bg-action') + '-' + Date.now(),
-            requireInteraction: true
-        });
+    var notifTag = (tag || 'bg-action') + '-' + Date.now();
+    var opts = { body: body, tag: notifTag, requireInteraction: true, vibrate: [200, 100, 200] };
+    // Use Service Worker showNotification (works on iOS PWA + all browsers)
+    if (swRegistration && swRegistration.showNotification) {
+        swRegistration.showNotification(title, opts);
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(title, opts);
     }
 }
 
