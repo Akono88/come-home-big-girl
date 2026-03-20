@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════
    Come Home Big Girl — Service Worker
    Background Push Notifications
+   v4 — iOS-compatible minimal options
    ═══════════════════════════════════════ */
 
 self.addEventListener('install', function(e) {

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "big-girl",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["-e", "require('http').createServer((q,r)=>{const fs=require('fs'),p=require('path'),u=require('url').parse(q.url).pathname,f=p.join('D:/come-home-big-girl',u==='/'?'index.html':u),e=p.extname(f),t={'.html':'text/html','.js':'application/javascript','.css':'text/css','.json':'application/json','.png':'image/png'}[e]||'application/octet-stream';fs.readFile(f,(err,d)=>{if(err){r.writeHead(404);r.end('Not found')}else{r.writeHead(200,{'Content-Type':t,'Cache-Control':'no-store'});r.end(d)}})}).listen(3000,()=>console.log('Serving on 3000'))"],
+      "port": 3000
+    }
+  ]
+}

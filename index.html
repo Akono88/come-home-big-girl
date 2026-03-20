@@ -1114,13 +1114,17 @@ function scheduleOverdueAlerts() {
 /* ═══ PUSH NOTIFY HELPER ═══ */
 function notify(title, body, tag) {
     var notifTag = (tag || 'bg-action') + '-' + Date.now();
-    var opts = { body: body, tag: notifTag, requireInteraction: true, vibrate: [200, 100, 200] };
-    // Use Service Worker showNotification (works on iOS PWA + all browsers)
+    // Use Service Worker showNotification (required for iOS PWA)
     if (swRegistration && swRegistration.showNotification) {
-        swRegistration.showNotification(title, opts);
+        swRegistration.showNotification(title, { body: body, tag: notifTag }).catch(function(e) {
+            console.error('[Notify] SW showNotification failed:', e);
+            // Fallback to Notification API
+            try { new Notification(title, { body: body, tag: notifTag }); } catch(e2) { console.error('[Notify] Fallback failed:', e2); }
+        });
     } else if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(title, opts);
+        try { new Notification(title, { body: body, tag: notifTag }); } catch(e) { console.error('[Notify] Notification failed:', e); }
     }
+    console.log('[Notify]', title, '-', body);
 }
 
 /* ═══════════════════════════════════════
