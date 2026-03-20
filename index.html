@@ -9,6 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Big Girl">
     <meta name="theme-color" content="#c2185b">
+    <link rel="apple-touch-icon" href="big-girl.jpg.jpg">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -58,7 +59,12 @@
             content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
             background: linear-gradient(90deg, var(--pink-soft), var(--pink-deep), var(--pink-soft));
         }
-        .header-icon { font-size: 28px; margin-bottom: 4px; }
+        .header-icon { font-size: 28px; margin-bottom: 4px; display: none; }
+        .header-photo {
+            width: 90px; height: 90px; border-radius: 50%; object-fit: cover;
+            border: 3px solid var(--pink-soft); margin-bottom: 8px;
+            box-shadow: 0 2px 12px rgba(194, 24, 91, 0.15);
+        }
         h1 { font-family: 'Fraunces', Georgia, serif; font-weight: 900; font-size: 1.3rem; color: var(--pink-deep); letter-spacing: 0.3px; }
         .subtitle { font-size: 0.55rem; letter-spacing: 3px; text-transform: uppercase; color: var(--text-light); margin-top: 3px; font-weight: 700; }
         .cst-clock { margin-top: 6px; font-size: 0.65rem; font-weight: 600; color: var(--pink-mid); letter-spacing: 0.5px; }
@@ -285,6 +291,7 @@
 <div class="toast-container" id="toastContainer"></div>
 <div class="app" id="app">
     <header>
+        <img src="big-girl.jpg.jpg" alt="Big Girl" class="header-photo">
         <div class="header-icon">🐕‍🦺</div>
         <h1>Come Home Big Girl</h1>
         <div class="subtitle">The White Rabbit Protocol · v3</div>
