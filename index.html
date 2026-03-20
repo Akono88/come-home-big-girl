@@ -535,22 +535,37 @@ var lastSaveTs = {}; // track our own saves to ignore echoes
 /* ═══ SERVICE WORKER + WEB PUSH ═══ */
 var swRegistration = null;
 var pushSubscription = null;
+var swReady = null; // promise that resolves when SW is ready
 
 async function initServiceWorker() {
-    if (!('serviceWorker' in navigator)) { console.log('[SW] Not supported'); return; }
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.log('[SW] Push not supported');
+        return;
+    }
     try {
-        swRegistration = await navigator.serviceWorker.register('sw.js');
-        console.log('[SW] Registered:', swRegistration.scope);
+        await navigator.serviceWorker.register('sw.js');
+        swRegistration = await navigator.serviceWorker.ready;
+        console.log('[SW] Ready:', swRegistration.scope);
         // Check existing push subscription
         pushSubscription = await swRegistration.pushManager.getSubscription();
         if (pushSubscription) {
             console.log('[Push] Already subscribed');
             await savePushSubscription(pushSubscription);
+        } else if (Notification.permission === 'granted') {
+            // Permission was granted before but no subscription — auto-subscribe
+            console.log('[Push] Permission granted, auto-subscribing...');
+            await subscribeToPush();
         }
     } catch(e) { console.error('[SW] Registration failed:', e); }
 }
 
 async function subscribeToPush() {
+    // Wait for SW to be ready if not yet
+    if (!swRegistration && 'serviceWorker' in navigator) {
+        try {
+            swRegistration = await navigator.serviceWorker.ready;
+        } catch(e) { console.error('[Push] SW not ready:', e); return null; }
+    }
     if (!swRegistration) { console.error('[Push] No SW registration'); return null; }
     try {
         // Convert VAPID key from base64url to Uint8Array
@@ -585,11 +600,13 @@ async function savePushSubscription(sub) {
 
 async function sendPushToAll(title, body, tag) {
     try {
-        await fetch(PUSH_FUNCTION_URL, {
+        var resp = await fetch(PUSH_FUNCTION_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
             body: JSON.stringify({ title: title, body: body, tag: tag || ('bg-' + Date.now()), sender_device: DEVICE_ID })
         });
+        var result = await resp.json();
+        console.log('[Push] Sent:', result);
     } catch(e) { console.error('[Push] Send error:', e); }
 }
 
@@ -975,7 +992,7 @@ function renderNotifBanner() {
         el.innerHTML = '<div class="notif-banner enabled"><i class="fa-solid fa-bell"></i><div class="notif-banner-text"><div class="notif-banner-title">Push Notifications Active</div><div class="notif-banner-sub">You\'ll get real-time alerts even when this app is closed.</div></div></div>';
         scheduleNotifications();
         // Subscribe to Web Push if not already
-        if (swRegistration && !pushSubscription) subscribeToPush();
+        if (!pushSubscription) subscribeToPush();
     } else {
         el.innerHTML = '<div class="notif-banner" id="enableNotifBtn"><i class="fa-solid fa-bell"></i><div class="notif-banner-text"><div class="notif-banner-title">Enable Push Notifications</div><div class="notif-banner-sub">Tap to get real-time alerts on this device — even when the app is closed.</div></div></div>';
         document.getElementById('enableNotifBtn').addEventListener('click', requestNotifPermission);
