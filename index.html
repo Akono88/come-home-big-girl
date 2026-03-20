@@ -102,6 +102,12 @@
         .timeout-card-flash { animation: cardFlash 1.5s ease infinite; }
         @keyframes cardFlash { 0%, 100% { box-shadow: var(--shadow); } 50% { box-shadow: 0 0 18px 4px rgba(229,57,53,0.35), 0 0 0 2px #e53935; } }
 
+        /* ═══ OVERDUE FLASH ═══ */
+        @keyframes overdueFlash { 0%, 100% { background: #fff3e0; } 50% { background: #ffe0b2; } }
+        .overdue-flash { animation: overdueFlash 1.5s ease infinite; border-radius: 8px; padding-left: 8px !important; border-left: 3px solid #e65100 !important; }
+        .overdue-flash .task-name { color: #bf360c !important; font-weight: 700 !important; }
+        .overdue-flash .time-pill { background: #e65100 !important; color: white !important; }
+
         /* ═══ PROGRESS ═══ */
         .progress-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         .progress-bar { flex: 1; height: 5px; background: var(--pink-whisper); border-radius: 5px; overflow: hidden; }
@@ -513,6 +519,8 @@
    ═══════════════════════════════════════ */
 const SUPABASE_URL = 'https://dwjfalxktunadksddmzw.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3amZhbHhrdHVuYWRrc2RkbXp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1OTkwMjQsImV4cCI6MjA4ODE3NTAyNH0.fWCU-H23WHRH3lgdYY5U9uQR9cO1UIEWCz3MosVWtv8';
+const PUSH_FUNCTION_URL = SUPABASE_URL + '/functions/v1/push-notify';
+const VAPID_PUBLIC_KEY = 'BFslLD6EcYoUUcAPbL_tAJEzWvbVcpUAdh8K5eBlrAJgW9MUMtdn8J9on9J0M5xIR8MEgjT1bXmjJMGq5LVXfdI';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const STATE_ID = 'daily-state-v3';
 const LOG_ID = 'activity-log-v3';
@@ -523,6 +531,70 @@ const VAX_ID = 'vaccination-tracker';
 var DEVICE_ID = localStorage.getItem('bg-device-id');
 if (!DEVICE_ID) { DEVICE_ID = 'dev-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6); localStorage.setItem('bg-device-id', DEVICE_ID); }
 var lastSaveTs = {}; // track our own saves to ignore echoes
+
+/* ═══ SERVICE WORKER + WEB PUSH ═══ */
+var swRegistration = null;
+var pushSubscription = null;
+
+async function initServiceWorker() {
+    if (!('serviceWorker' in navigator)) { console.log('[SW] Not supported'); return; }
+    try {
+        swRegistration = await navigator.serviceWorker.register('sw.js');
+        console.log('[SW] Registered:', swRegistration.scope);
+        // Check existing push subscription
+        pushSubscription = await swRegistration.pushManager.getSubscription();
+        if (pushSubscription) {
+            console.log('[Push] Already subscribed');
+            await savePushSubscription(pushSubscription);
+        }
+    } catch(e) { console.error('[SW] Registration failed:', e); }
+}
+
+async function subscribeToPush() {
+    if (!swRegistration) { console.error('[Push] No SW registration'); return null; }
+    try {
+        // Convert VAPID key from base64url to Uint8Array
+        var padding = '='.repeat((4 - VAPID_PUBLIC_KEY.length % 4) % 4);
+        var b64 = (VAPID_PUBLIC_KEY + padding).replace(/-/g, '+').replace(/_/g, '/');
+        var raw = atob(b64);
+        var arr = new Uint8Array(raw.length);
+        for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+
+        pushSubscription = await swRegistration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: arr
+        });
+        console.log('[Push] Subscribed:', JSON.stringify(pushSubscription));
+        await savePushSubscription(pushSubscription);
+        return pushSubscription;
+    } catch(e) { console.error('[Push] Subscribe failed:', e); return null; }
+}
+
+async function savePushSubscription(sub) {
+    if (!sub) return;
+    try {
+        var subJson = sub.toJSON();
+        await sb.from('push_subscriptions').upsert({
+            device_id: DEVICE_ID,
+            subscription: subJson,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'device_id' });
+        console.log('[Push] Subscription saved to DB');
+    } catch(e) { console.error('[Push] Save subscription error:', e); }
+}
+
+async function sendPushToAll(title, body, tag) {
+    try {
+        await fetch(PUSH_FUNCTION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+            body: JSON.stringify({ title: title, body: body, tag: tag || ('bg-' + Date.now()), sender_device: DEVICE_ID })
+        });
+    } catch(e) { console.error('[Push] Send error:', e); }
+}
+
+// Init SW immediately
+initServiceWorker();
 
 /* ═══ TIMEZONE HELPERS ═══ */
 function getCSTNow() { return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' })); }
@@ -716,7 +788,7 @@ function toggleAlert(on) {
         if (card) card.classList.add('timeout-card-flash');
         // Send push notification
         if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('🚨 Big Girl on Time Out', { body: 'Do NOT approach — she\'s feeling grumpy. Give her space and let her decompress.', tag: 'timeout-alert' });
+            new Notification('🚨 Big Girl on Time Out', { body: 'Do NOT approach — she\'s feeling grumpy. Give her space and let her decompress.', tag: 'timeout-alert-' + Date.now(), requireInteraction: true });
         }
     } else {
         el.classList.remove('active', 'timeout-flash');
@@ -863,6 +935,7 @@ document.getElementById('addVaxBtn').addEventListener('click', function() {
     renderVax();
     addLog('note', '💉 Added vaccination: ' + name);
     notify('💉 Vaccination Added', name + ' recorded. Next due date is being tracked.', 'vax-add');
+    sendPushToAll('💉 Vaccination Added', name + ' has been added to tracking.', 'vax-add-' + Date.now());
 });
 
 window.removeVax = function(i) {
@@ -873,6 +946,7 @@ window.removeVax = function(i) {
     renderVax();
     addLog('note', '🗑️ Removed vaccination: ' + name);
     notify('🗑️ Vaccination Removed', name + ' has been removed from tracking.', 'vax-remove');
+    sendPushToAll('🗑️ Vaccination Removed', name + ' has been removed from tracking.', 'vax-remove-' + Date.now());
 };
 
 /* ═══════════════════════════════════════
@@ -898,17 +972,24 @@ function renderNotifBanner() {
     var perm = Notification.permission;
     if (perm === 'granted') {
         notifEnabled = true;
-        el.innerHTML = '<div class="notif-banner enabled"><i class="fa-solid fa-bell"></i><div class="notif-banner-text"><div class="notif-banner-title">Notifications Active</div><div class="notif-banner-sub">You\'ll get reminders for each daily task.</div></div></div>';
+        el.innerHTML = '<div class="notif-banner enabled"><i class="fa-solid fa-bell"></i><div class="notif-banner-text"><div class="notif-banner-title">Push Notifications Active</div><div class="notif-banner-sub">You\'ll get real-time alerts even when this app is closed.</div></div></div>';
         scheduleNotifications();
+        // Subscribe to Web Push if not already
+        if (swRegistration && !pushSubscription) subscribeToPush();
     } else {
-        el.innerHTML = '<div class="notif-banner" id="enableNotifBtn"><i class="fa-solid fa-bell"></i><div class="notif-banner-text"><div class="notif-banner-title">Enable Reminders</div><div class="notif-banner-sub">Tap to get push notifications for daily tasks.</div></div></div>';
+        el.innerHTML = '<div class="notif-banner" id="enableNotifBtn"><i class="fa-solid fa-bell"></i><div class="notif-banner-text"><div class="notif-banner-title">Enable Push Notifications</div><div class="notif-banner-sub">Tap to get real-time alerts on this device — even when the app is closed.</div></div></div>';
         document.getElementById('enableNotifBtn').addEventListener('click', requestNotifPermission);
     }
 }
 
 async function requestNotifPermission() {
     var perm = await Notification.requestPermission();
-    if (perm === 'granted') { notifEnabled = true; addLog('toggle', '🔔 Notifications enabled'); }
+    if (perm === 'granted') {
+        notifEnabled = true;
+        addLog('toggle', '🔔 Push notifications enabled');
+        scheduleOverdueAlerts();
+        await subscribeToPush();
+    }
     renderNotifBanner();
 }
 
@@ -943,10 +1024,83 @@ function scheduleNotifications() {
     });
 }
 
+/* ═══ OVERDUE TASK ALERTS ═══ */
+var overdueTimers = [];
+var overdueCheckInterval = null;
+
+function parseScheduleTime(timeStr) {
+    var parts = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!parts) return null;
+    var h = parseInt(parts[1]);
+    var m = parseInt(parts[2]);
+    var ampm = parts[3].toUpperCase();
+    if (ampm === 'PM' && h !== 12) h += 12;
+    if (ampm === 'AM' && h === 12) h = 0;
+    return { hour: h, min: m };
+}
+
+function scheduleOverdueAlerts() {
+    // Clear previous timers
+    overdueTimers.forEach(function(t) { clearTimeout(t); });
+    overdueTimers = [];
+    if (overdueCheckInterval) clearInterval(overdueCheckInterval);
+
+    if (!notifEnabled) return;
+
+    // Schedule alerts 5 minutes after each task's time if not done
+    var now = getCSTNow();
+    schedule.forEach(function(item, i) {
+        var t = parseScheduleTime(item.time);
+        if (!t) return;
+        var target = new Date(now);
+        target.setHours(t.hour, t.min + 5, 0, 0); // 5 min grace period
+        var ms = target.getTime() - now.getTime();
+        if (ms > 0 && ms < 86400000) {
+            var timer = setTimeout(function() {
+                if (!state.tasks[i]) {
+                    var msg = item.task + ' (' + item.time + ') has NOT been done yet!';
+                    notify('⏰ Task Overdue!', msg, 'overdue-' + i);
+                    sendPushToAll('⏰ Task Overdue!', msg, 'overdue-' + i + '-' + Date.now());
+                    // Flash the task row
+                    var row = document.getElementById('row-' + i);
+                    if (row) { row.classList.add('overdue-flash'); }
+                }
+            }, ms);
+            overdueTimers.push(timer);
+        }
+    });
+
+    // Also run a periodic check every 10 minutes for any overdue tasks
+    overdueCheckInterval = setInterval(function() {
+        if (!notifEnabled) return;
+        var now = getCSTNow();
+        var overdueList = [];
+        schedule.forEach(function(item, i) {
+            if (state.tasks[i]) return; // already done
+            var t = parseScheduleTime(item.time);
+            if (!t) return;
+            var taskTime = new Date(now);
+            taskTime.setHours(t.hour, t.min, 0, 0);
+            if (now > taskTime) {
+                overdueList.push(item.task + ' (' + item.time + ')');
+            }
+        });
+        if (overdueList.length > 0) {
+            var overdueMsg = overdueList.join(', ');
+            notify('🚨 ' + overdueList.length + ' Task' + (overdueList.length > 1 ? 's' : '') + ' Overdue', overdueMsg, 'overdue-periodic');
+            sendPushToAll('🚨 ' + overdueList.length + ' Task' + (overdueList.length > 1 ? 's' : '') + ' Overdue', overdueMsg, 'overdue-periodic-' + Date.now());
+        }
+    }, 600000); // every 10 minutes
+}
+
 /* ═══ PUSH NOTIFY HELPER ═══ */
 function notify(title, body, tag) {
     if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(title, { body: body, tag: tag || 'bg-action-' + Date.now() });
+        new Notification(title, {
+            body: body,
+            tag: (tag || 'bg-action') + '-' + Date.now(),
+            requireInteraction: true
+        });
     }
 }
 
@@ -957,6 +1111,12 @@ document.getElementById('toddlerSwitch').addEventListener('change', function() {
     state.toddler = this.checked;
     toggleAlert(this.checked);
     addLog('toggle', this.checked ? '😤 Big Girl on Time Out — do not approach' : '😊 Big Girl off Time Out — she\'s feeling better');
+    // Push to all other devices immediately
+    if (this.checked) {
+        sendPushToAll('🚨 Big Girl on Time Out', 'Do NOT approach — she\'s feeling grumpy. Give her space and let her decompress.', 'timeout-on-' + Date.now());
+    } else {
+        sendPushToAll('😊 Time Out Ended', 'Big Girl is off Time Out — she\'s feeling better now.', 'timeout-off-' + Date.now());
+    }
     saveState();
 });
 
@@ -965,12 +1125,26 @@ document.querySelectorAll('#taskList input[type="checkbox"]').forEach(function(c
         var i = parseInt(this.dataset.idx);
         state.tasks[i] = this.checked;
         var row = document.getElementById('row-' + i);
-        if (this.checked) row.classList.add('done'); else row.classList.remove('done');
+        if (this.checked) {
+            row.classList.add('done');
+            row.classList.remove('overdue-flash');
+        } else {
+            row.classList.remove('done');
+        }
         updateProgress();
         addLog('task', (this.checked ? '✅' : '⬜') + ' ' + schedule[i].task + ' (' + schedule[i].time + ')');
         notify(this.checked ? '✅ Task Complete' : '⬜ Task Unchecked', schedule[i].task + ' (' + schedule[i].time + ')', 'task-' + i);
+        // Push to all other devices
+        sendPushToAll(
+            this.checked ? '✅ Task Complete' : '⬜ Task Unchecked',
+            schedule[i].task + ' (' + schedule[i].time + ')',
+            'task-' + i + '-' + Date.now()
+        );
         var done = state.tasks.filter(Boolean).length;
-        if (done === schedule.length) { notify('🎉 All Tasks Done!', 'Big Girl\'s full daily routine is complete. Great job!', 'all-done'); }
+        if (done === schedule.length) {
+            notify('🎉 All Tasks Done!', 'Big Girl\'s full daily routine is complete. Great job!', 'all-done');
+            sendPushToAll('🎉 All Tasks Done!', 'Big Girl\'s full daily routine is complete. Great teamwork!', 'all-done-' + Date.now());
+        }
         saveState();
     });
 });
@@ -990,7 +1164,11 @@ document.getElementById('dailyNotes').addEventListener('input', function() {
 });
 
 /* ═══ MODAL ═══ */
-document.getElementById('tradeBtn').addEventListener('click', function() { document.getElementById('modal').classList.add('open'); notify('🚨 Emergency Trade-Up', 'Trade-up protocol activated. Follow the steps carefully.', 'trade-up'); });
+document.getElementById('tradeBtn').addEventListener('click', function() {
+    document.getElementById('modal').classList.add('open');
+    notify('🚨 Emergency Trade-Up', 'Trade-up protocol activated. Follow the steps carefully.', 'trade-up');
+    sendPushToAll('🚨 Emergency Trade-Up', 'Trade-up protocol activated by another caretaker!', 'trade-up-' + Date.now());
+});
 document.getElementById('closeModal').addEventListener('click', function() { document.getElementById('modal').classList.remove('open'); });
 document.getElementById('modal').addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
 
@@ -1040,7 +1218,7 @@ document.querySelectorAll('.section-btn').forEach(function(btn) {
    ═══════════════════════════════════════ */
 function startRealtime() {
     sb.channel('husky-sync')
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'husky_logs' }, function(payload) {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'husky_logs' }, function(payload) {
             var row = payload.new;
             if (!row || !row.content) return;
             var c = row.content;
@@ -1068,13 +1246,18 @@ function startRealtime() {
                     }
                 }
 
-                // Check for newly completed tasks
+                // Check for newly completed tasks and dismiss overdue alerts
                 var newDone = row.content.tasks ? row.content.tasks.filter(Boolean).length : 0;
                 var oldDone = oldState.tasks ? oldState.tasks.filter(Boolean).length : 0;
                 if (newDone > oldDone) {
                     var changedTasks = [];
                     row.content.tasks.forEach(function(done, i) {
-                        if (done && !oldState.tasks[i]) changedTasks.push(schedule[i].task);
+                        if (done && !oldState.tasks[i]) {
+                            changedTasks.push(schedule[i].task);
+                            // Dismiss overdue flash for completed tasks
+                            var row2 = document.getElementById('row-' + i);
+                            if (row2) row2.classList.remove('overdue-flash');
+                        }
                     });
                     notify('✅ Task Updated', changedTasks.join(', ') + ' completed by another caretaker.', 'remote-task');
                     if (newDone === schedule.length) {
@@ -1082,6 +1265,8 @@ function startRealtime() {
                     }
                 } else if (newDone < oldDone) {
                     notify('⬜ Task Unchecked', 'A task was unchecked by another caretaker.', 'remote-task-undo');
+                    // Re-schedule overdue alerts since task was unchecked
+                    scheduleOverdueAlerts();
                 }
 
                 // Notes changed
@@ -1122,6 +1307,7 @@ function startRealtime() {
 loadState().then(function() {
     initCalendar();
     renderNotifBanner();
+    scheduleOverdueAlerts();
     startRealtime();
 });
 </script>
