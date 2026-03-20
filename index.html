@@ -107,6 +107,14 @@
         .timeout-card-flash { animation: cardFlash 1.5s ease infinite; }
         @keyframes cardFlash { 0%, 100% { box-shadow: var(--shadow); } 50% { box-shadow: 0 0 18px 4px rgba(229,57,53,0.35), 0 0 0 2px #e53935; } }
 
+        /* ═══ IN-APP TOAST ═══ */
+        .toast-container { position: fixed; top: 12px; left: 12px; right: 12px; z-index: 10000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+        .toast { background: #1a1a2e; color: #fff; padding: 12px 16px; border-radius: 14px; font-size: 0.78rem; font-weight: 500; box-shadow: 0 8px 24px rgba(0,0,0,0.3); opacity: 0; transform: translateY(-20px); animation: toastIn 0.3s ease forwards; pointer-events: auto; line-height: 1.4; }
+        .toast .toast-title { font-weight: 700; margin-bottom: 2px; }
+        .toast .toast-body { opacity: 0.85; }
+        @keyframes toastIn { to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastOut { to { opacity: 0; transform: translateY(-20px); } }
+
         /* ═══ OVERDUE FLASH ═══ */
         @keyframes overdueFlash { 0%, 100% { background: #fff3e0; } 50% { background: #ffe0b2; } }
         .overdue-flash { animation: overdueFlash 1.5s ease infinite; border-radius: 8px; padding-left: 8px !important; border-left: 3px solid #e65100 !important; }
@@ -274,6 +282,7 @@
     </style>
 </head>
 <body>
+<div class="toast-container" id="toastContainer"></div>
 <div class="app" id="app">
     <header>
         <div class="header-icon">🐕‍🦺</div>
@@ -1113,18 +1122,29 @@ function scheduleOverdueAlerts() {
 
 /* ═══ PUSH NOTIFY HELPER ═══ */
 function notify(title, body, tag) {
+    // Always show in-app toast (works everywhere, even iOS foreground)
+    showToast(title, body);
+
+    // Also try OS-level notification for background
     var notifTag = (tag || 'bg-action') + '-' + Date.now();
-    // Use Service Worker showNotification (required for iOS PWA)
     if (swRegistration && swRegistration.showNotification) {
-        swRegistration.showNotification(title, { body: body, tag: notifTag }).catch(function(e) {
-            console.error('[Notify] SW showNotification failed:', e);
-            // Fallback to Notification API
-            try { new Notification(title, { body: body, tag: notifTag }); } catch(e2) { console.error('[Notify] Fallback failed:', e2); }
-        });
+        swRegistration.showNotification(title, { body: body, tag: notifTag }).catch(function() {});
     } else if ('Notification' in window && Notification.permission === 'granted') {
-        try { new Notification(title, { body: body, tag: notifTag }); } catch(e) { console.error('[Notify] Notification failed:', e); }
+        try { new Notification(title, { body: body, tag: notifTag }); } catch(e) {}
     }
-    console.log('[Notify]', title, '-', body);
+}
+
+function showToast(title, body) {
+    var container = document.getElementById('toastContainer');
+    if (!container) return;
+    var toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = '<div class="toast-title">' + title + '</div><div class="toast-body">' + body + '</div>';
+    container.appendChild(toast);
+    setTimeout(function() {
+        toast.style.animation = 'toastOut 0.3s ease forwards';
+        setTimeout(function() { toast.remove(); }, 300);
+    }, 4000);
 }
 
 /* ═══════════════════════════════════════
